@@ -682,47 +682,47 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
   /* Top bar */
   #topbar{position:fixed;top:0;left:0;right:0;z-index:1000;
-    padding:calc(env(safe-area-inset-top) + 10px) 14px 10px 14px;
-    background:linear-gradient(180deg,rgba(13,17,23,.92),rgba(13,17,23,.0));
-    display:flex;align-items:center;gap:10px;pointer-events:none;}
-  #topbar .title{pointer-events:auto;font-weight:700;font-size:16px;letter-spacing:.3px;
-    background:var(--panel);padding:8px 14px;border-radius:12px;border:1px solid var(--line);
-    box-shadow:0 4px 16px rgba(0,0,0,.4);}
-  #topbar .title small{display:block;font-weight:500;color:var(--muted);font-size:11px;}
+    padding:calc(env(safe-area-inset-top) + 6px) 10px 6px 10px;
+    display:flex;align-items:center;gap:6px;pointer-events:none;}
+  #topbar .title{pointer-events:auto;font-weight:700;font-size:13px;letter-spacing:.3px;
+    background:var(--panel);padding:5px 10px;border-radius:9px;border:1px solid var(--line);
+    box-shadow:0 2px 10px rgba(0,0,0,.35);display:flex;align-items:baseline;gap:6px;}
+  #topbar .title small{font-weight:500;color:var(--muted);font-size:10px;}
+  .chipbtn{pointer-events:auto;flex:0 0 auto;padding:5px 10px;font-size:11px;font-weight:700;
+    border-radius:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);
+    box-shadow:0 2px 10px rgba(0,0,0,.3);}
+  .chipbtn.nfz{border-color:#8a5cf0;color:#c9b4ff;}
 
   /* Slim single-line readout */
-  #readout{position:fixed;z-index:1000;left:14px;right:14px;top:calc(env(safe-area-inset-top) + 60px);
+  #readout{position:fixed;z-index:1000;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 42px);
     pointer-events:none;display:flex;}
-  .statbar{pointer-events:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;
-    display:flex;width:100%;box-shadow:0 4px 14px rgba(0,0,0,.35);overflow:hidden;}
-  .statbar span{flex:1;text-align:center;padding:7px 4px;border-right:1px solid var(--line);}
+  .statbar{pointer-events:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    display:flex;width:100%;box-shadow:0 2px 10px rgba(0,0,0,.3);overflow:hidden;}
+  .statbar span{flex:1;text-align:center;padding:4px 4px;border-right:1px solid var(--line);}
   .statbar span:last-child{border-right:none;}
-  .statbar b{display:block;font-size:14px;font-weight:700;white-space:nowrap;}
-  .statbar i{display:block;font-style:normal;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.5px;margin-top:1px;}
+  .statbar b{display:block;font-size:13px;font-weight:700;white-space:nowrap;}
+  .statbar i{display:block;font-style:normal;color:var(--muted);font-size:8px;text-transform:uppercase;letter-spacing:.5px;}
 
   /* Bottom controls */
   #controls{position:fixed;z-index:1000;left:0;right:0;bottom:0;
-    padding:10px 14px calc(env(safe-area-inset-bottom) + 12px) 14px;
-    background:linear-gradient(0deg,rgba(13,17,23,.95),rgba(13,17,23,0));
-    display:flex;flex-direction:column;gap:8px;}
-  .row{display:flex;gap:8px;}
-  button{font-family:inherit;border:none;border-radius:12px;padding:13px;font-size:15px;
+    padding:8px 10px calc(env(safe-area-inset-bottom) + 8px) 10px;
+    display:flex;flex-direction:column;gap:6px;}
+  .row{display:flex;gap:6px;}
+  button{font-family:inherit;border:none;border-radius:10px;padding:10px;font-size:14px;
     font-weight:700;color:#fff;cursor:pointer;flex:1;transition:transform .05s ease;}
   button:active{transform:scale(.97);}
-  .btn-primary{background:var(--accent);box-shadow:0 6px 18px rgba(47,111,237,.4);}
+  .btn-primary{background:var(--accent);box-shadow:0 3px 12px rgba(47,111,237,.35);}
   .btn-ghost{background:var(--panel2);border:1px solid var(--line);color:var(--text);}
-  .btn-launch{background:var(--launch);box-shadow:0 6px 18px rgba(63,185,80,.4);}
-  .btn-sq{flex:0 0 48px;padding:13px 0;font-size:16px;}
+  .btn-launch{background:var(--launch);box-shadow:0 3px 12px rgba(63,185,80,.35);}
+  .btn-sq{flex:0 0 42px;padding:10px 0;font-size:15px;}
 
-  /* Heading input row */
-  .headingrow{display:flex;align-items:center;gap:8px;background:var(--panel);
-    border:1px solid var(--line);border-radius:12px;padding:6px 10px;box-shadow:0 4px 14px rgba(0,0,0,.35);}
-  .headingrow .hlbl{color:var(--muted);font-size:11px;flex:1;min-width:0;}
-  .headingrow input{width:72px;background:var(--panel2);border:1px solid var(--line);color:var(--text);
-    border-radius:9px;padding:9px;font-size:16px;font-weight:700;text-align:center;font-family:ui-monospace,monospace;}
-  .headingrow .hdeg{color:var(--muted);margin-left:-4px;}
-  .btn-mini{flex:0 0 auto;padding:9px 12px;font-size:13px;border-radius:9px;background:var(--accent);}
-  .btn-mini-ghost{background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 11px;}
+  /* Inline heading field (in bottom row) */
+  #hdgInput{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--text);
+    border-radius:10px;padding:9px 12px;font-size:15px;font-weight:700;text-align:center;
+    font-family:ui-monospace,monospace;}
+  #hdgInput::placeholder{color:var(--muted);font-weight:500;}
+  .btn-mini{flex:0 0 auto;padding:9px 14px;font-size:13px;border-radius:10px;background:var(--accent);}
+  .btn-mini-ghost{flex:0 0 42px;background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 0;}
 
   /* Settings radius panel (inside sheet) */
   #radiuspanel{background:var(--panel2);border:1px solid var(--line);border-radius:12px;
@@ -775,10 +775,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .toast.show{opacity:1;}
 
   .leaflet-container{background:#0d1117;}
-  #nfzNote{position:fixed;z-index:1000;left:50%;transform:translateX(-50%);
-    top:calc(env(safe-area-inset-top) + 100px);background:rgba(138,92,240,.18);
-    border:1px solid #8a5cf0;color:#c9b4ff;font-size:10px;padding:3px 10px;border-radius:10px;
-    pointer-events:none;white-space:nowrap;}
   .me-dot{width:18px;height:18px;background:var(--accent);border:3px solid #fff;border-radius:50%;
     box-shadow:0 0 0 6px rgba(47,111,237,.25),0 0 14px rgba(47,111,237,.6);}
   .me-arrow{position:absolute;left:50%;top:50%;width:0;height:0;
@@ -790,32 +786,29 @@ svg.leaflet-image-layer.leaflet-interactive path {
 <div id="map"></div>
 
 <div id="topbar">
-  <div class="title">PADDC Hazard GPS<small id="statusline">Acquiring GPS...</small></div>
-  <button id="mapType" style="pointer-events:auto;flex:0;padding:8px 12px;font-size:12px;border-radius:10px;background:var(--panel);border:1px solid var(--line);color:var(--text);">Satellite</button>
-  <button id="nfzToggle" style="pointer-events:auto;flex:0;padding:8px 12px;font-size:12px;border-radius:10px;background:var(--panel);border:1px solid #8a5cf0;color:#c9b4ff;">NFZ on</button>
+  <div class="title">PADDC<small id="statusline">GPS...</small></div>
+  <button id="mapType" class="chipbtn">Sat</button>
+  <button id="nfzToggle" class="chipbtn nfz">NFZ</button>
 </div>
 
 <div id="readout">
   <div class="statbar">
-    <span><b id="dist">-</b><i>distance from PADDC</i></span>
-    <span><b id="brg">-</b><i>heading from PADDC</i></span>
+    <span><b id="dist">-</b><i>dist</i></span>
+    <span><b id="brg">-</b><i>brg</i></span>
   </div>
 </div>
-<div id="nfzNote">NFZ zones from QTX4 survey data</div>
 
 <div id="controls">
-  <div class="headingrow">
-    <span class="hlbl">Heading from PADDC</span>
-    <input type="number" id="hdgInput" min="0" max="359" placeholder="e.g. 075" inputmode="numeric">
-    <span class="hdeg">deg</span>
+  <div class="row">
+    <input type="number" id="hdgInput" min="0" max="359" placeholder="hdg" inputmode="numeric">
     <button class="btn-mini" id="drawHdg">Draw</button>
-    <button class="btn-mini btn-mini-ghost" id="clearHdg">Clear</button>
+    <button class="btn-mini btn-mini-ghost" id="clearHdg">&times;</button>
   </div>
   <div class="row">
-    <button class="btn-primary" id="captureMe">Capture position</button>
+    <button class="btn-primary" id="captureMe">Capture</button>
     <button class="btn-ghost btn-sq" id="openList"><span id="count">0</span></button>
-    <button class="btn-ghost btn-sq" id="recenter">Center</button>
-    <button class="btn-ghost btn-sq" id="gear">Set</button>
+    <button class="btn-ghost btn-sq" id="recenter">&#9678;</button>
+    <button class="btn-ghost btn-sq" id="gear">&#9881;</button>
   </div>
 </div>
 
@@ -1127,16 +1120,17 @@ let satOn=false;
 document.getElementById('mapType').onclick=()=>{
   satOn=!satOn;
   if(satOn){ map.removeLayer(streets); sat.addTo(map); satLabels.addTo(map);
-    document.getElementById('mapType').textContent='Street'; }
+    document.getElementById('mapType').textContent='Map'; }
   else { map.removeLayer(sat); map.removeLayer(satLabels); streets.addTo(map);
-    document.getElementById('mapType').textContent='Satellite'; }
+    document.getElementById('mapType').textContent='Sat'; }
 };
 // NFZ toggle
 let nfzOn=true;
 document.getElementById('nfzToggle').onclick=()=>{
   nfzOn=!nfzOn;
-  if(nfzOn){ nfzLayer.addTo(map); document.getElementById('nfzToggle').textContent='NFZ on'; }
-  else { map.removeLayer(nfzLayer); document.getElementById('nfzToggle').textContent='NFZ off'; }
+  const btn=document.getElementById('nfzToggle');
+  if(nfzOn){ nfzLayer.addTo(map); btn.style.opacity='1'; }
+  else { map.removeLayer(nfzLayer); btn.style.opacity='0.45'; }
 };
 const radEl=document.getElementById('radius');
 radEl.value=radiusNM;
