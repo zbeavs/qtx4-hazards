@@ -786,8 +786,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
 <div id="map"></div>
 
 <div id="topbar">
-  <div class="title">PADDC Hazard GPS<small id="statusline">Acquiring GPSâ€¦</small></div>
-  <button id="mapType" style="pointer-events:auto;flex:0;padding:8px 12px;font-size:12px;border-radius:10px;background:var(--panel);border:1px solid var(--line);color:var(--text);">&#x1F6F0;&#xFE0F; Satellite</button>
+  <div class="title">PADDC Hazard GPS<small id="statusline">Acquiring GPS...</small></div>
+  <button id="mapType" style="pointer-events:auto;flex:0;padding:8px 12px;font-size:12px;border-radius:10px;background:var(--panel);border:1px solid var(--line);color:var(--text);">Satellite</button>
 </div>
 
 <div id="readout">
@@ -802,15 +802,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <div class="headingrow">
     <span class="hlbl">Heading from PADDC</span>
     <input type="number" id="hdgInput" min="0" max="359" placeholder="e.g. 075" inputmode="numeric">
-    <span class="hdeg">&deg;</span>
+    <span class="hdeg">deg</span>
     <button class="btn-mini" id="drawHdg">Draw</button>
-    <button class="btn-mini btn-mini-ghost" id="clearHdg">&times;</button>
+    <button class="btn-mini btn-mini-ghost" id="clearHdg">Clear</button>
   </div>
   <div class="row">
     <button class="btn-primary" id="captureMe">Capture position</button>
     <button class="btn-ghost btn-sq" id="openList"><span id="count">0</span></button>
-    <button class="btn-ghost btn-sq" id="recenter">&#x2316;</button>
-    <button class="btn-ghost btn-sq" id="gear">&#x2699;&#xFE0F;</button>
+    <button class="btn-ghost btn-sq" id="recenter">Center</button>
+    <button class="btn-ghost btn-sq" id="gear">Set</button>
   </div>
 </div>
 
@@ -1092,9 +1092,9 @@ let satOn=false;
 document.getElementById('mapType').onclick=()=>{
   satOn=!satOn;
   if(satOn){ map.removeLayer(streets); sat.addTo(map); satLabels.addTo(map);
-    document.getElementById('mapType').textContent='\uD83D\uDDFA\uFE0F Street'; }
+    document.getElementById('mapType').textContent='Street'; }
   else { map.removeLayer(sat); map.removeLayer(satLabels); streets.addTo(map);
-    document.getElementById('mapType').textContent='\uD83D\uDEF0\uFE0F Satellite'; }
+    document.getElementById('mapType').textContent='Satellite'; }
 };
 const radEl=document.getElementById('radius');
 radEl.value=radiusNM;
