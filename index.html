@@ -792,9 +792,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
 <div id="readout">
   <div class="statbar">
-    <span><b id="brg">-</b><i>brg</i></span>
-    <span><b id="dist">-</b><i>dist</i></span>
-    <span><b id="hdg">-</b><i>heading</i></span>
+    <span><b id="dist">-</b><i>distance from PADDC</i></span>
+    <span><b id="brg">-</b><i>heading from PADDC</i></span>
   </div>
 </div>
 
@@ -940,8 +939,8 @@ function bearing(a,b){
 }
 function metersToNice(m){
   const mi=m/1609.344; const nm=m/1852;
-  if(mi<0.19) return Math.round(m*3.28084)+" ft";
-  return mi.toFixed(2)+" mi Â· "+nm.toFixed(2)+" NM";
+  if(nm<0.1) return Math.round(m*3.28084)+" ft";
+  return nm.toFixed(2)+" NM ("+mi.toFixed(2)+" mi)";
 }
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
   clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),1600);}
@@ -954,10 +953,9 @@ function save(){localStorage.setItem('paddc_points',JSON.stringify(points));
 function updateReadout(){
   if(me){
     const d=haversine(launch, me), b=bearing(launch, me);
-    document.getElementById('brg').textContent=Math.round(b)+'&deg; '+compass16(b);
+    document.getElementById('brg').textContent=Math.round(b)+'\u00B0 '+compass16(b);
     document.getElementById('dist').textContent=metersToNice(d);
   }
-  document.getElementById('hdg').textContent = heading==null?'-':Math.round(heading)+'&deg; '+compass16(heading);
 }
 function compass16(deg){const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
   return dirs[Math.round(deg/22.5)%16];}
