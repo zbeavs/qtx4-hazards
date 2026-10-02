@@ -787,14 +787,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
 <div id="topbar">
   <div class="title">PADDC Hazard GPS<small id="statusline">Acquiring GPSâ€¦</small></div>
-  <button id="mapType" style="pointer-events:auto;flex:0;padding:8px 12px;font-size:12px;border-radius:10px;background:var(--panel);border:1px solid var(--line);color:var(--text);">ðŸ›°ï¸ Satellite</button>
+  <button id="mapType" style="pointer-events:auto;flex:0;padding:8px 12px;font-size:12px;border-radius:10px;background:var(--panel);border:1px solid var(--line);color:var(--text);">&#x1F6F0;&#xFE0F; Satellite</button>
 </div>
 
 <div id="readout">
   <div class="statbar">
-    <span><b id="brg">â€”</b><i>brg</i></span>
-    <span><b id="dist">â€”</b><i>dist</i></span>
-    <span><b id="hdg">â€”</b><i>heading</i></span>
+    <span><b id="brg">-</b><i>brg</i></span>
+    <span><b id="dist">-</b><i>dist</i></span>
+    <span><b id="hdg">-</b><i>heading</i></span>
   </div>
 </div>
 
@@ -802,15 +802,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <div class="headingrow">
     <span class="hlbl">Heading from PADDC</span>
     <input type="number" id="hdgInput" min="0" max="359" placeholder="e.g. 075" inputmode="numeric">
-    <span class="hdeg">Â°</span>
+    <span class="hdeg">&deg;</span>
     <button class="btn-mini" id="drawHdg">Draw</button>
-    <button class="btn-mini btn-mini-ghost" id="clearHdg">Ã—</button>
+    <button class="btn-mini btn-mini-ghost" id="clearHdg">&times;</button>
   </div>
   <div class="row">
     <button class="btn-primary" id="captureMe">Capture position</button>
     <button class="btn-ghost btn-sq" id="openList"><span id="count">0</span></button>
-    <button class="btn-ghost btn-sq" id="recenter">âŒ–</button>
-    <button class="btn-ghost btn-sq" id="gear">âš™</button>
+    <button class="btn-ghost btn-sq" id="recenter">&#x2316;</button>
+    <button class="btn-ghost btn-sq" id="gear">&#x2699;&#xFE0F;</button>
   </div>
 </div>
 
@@ -838,7 +838,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <div class="sheet">
     <h3 id="capTitle">Hazard captured</h3>
     <div class="sub" id="capSub">Tap the coordinates to select, or use a button below.</div>
-    <div class="coordbox" id="capCoord">â€”</div>
+    <div class="coordbox" id="capCoord">-</div>
     <div class="coord-sub" id="capCoordSub"></div>
     <div class="row">
       <button class="btn-copy" id="capCopy">Copy</button>
@@ -903,7 +903,7 @@ const satLabels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/servi
 streets.addTo(map);
 L.control.attribution({position:'bottomleft', prefix:false}).addTo(map);
 
-const launchIcon = L.divIcon({html:'<div style="font-size:26px;line-height:1;">ðŸŽ¯</div>',
+const launchIcon = L.divIcon({html:'<div style="font-size:26px;line-height:1;">\uD83C\uDFE0</div>',
   className:'', iconSize:[26,26], iconAnchor:[13,13]});
 let launchMarker = L.marker([launch.lat, launch.lng], {icon:launchIcon, zIndexOffset:500})
   .addTo(map).bindTooltip(launch.name, {permanent:true, direction:'top', offset:[0,-14], className:'launch-tt'});
@@ -923,7 +923,7 @@ function toDMS(dd, isLat){
   const dir = dd>=0 ? (isLat?'N':'E') : (isLat?'S':'W');
   dd=Math.abs(dd); const d=Math.floor(dd); const mF=(dd-d)*60; const m=Math.floor(mF);
   const s=((mF-m)*60).toFixed(1);
-  return d+'Â°'+String(m).padStart(2,'0')+"'"+String(s).padStart(4,'0')+'"'+dir;
+  return d+'&deg;'+String(m).padStart(2,'0')+"'"+String(s).padStart(4,'0')+'"'+dir;
 }
 function fmtDMS(lat,lng){ return toDMS(lat,true)+" "+toDMS(lng,false); }
 function haversine(a,b){
@@ -954,10 +954,10 @@ function save(){localStorage.setItem('paddc_points',JSON.stringify(points));
 function updateReadout(){
   if(me){
     const d=haversine(launch, me), b=bearing(launch, me);
-    document.getElementById('brg').textContent=Math.round(b)+'Â° '+compass16(b);
+    document.getElementById('brg').textContent=Math.round(b)+'&deg; '+compass16(b);
     document.getElementById('dist').textContent=metersToNice(d);
   }
-  document.getElementById('hdg').textContent = heading==null?'â€”':Math.round(heading)+'Â° '+compass16(heading);
+  document.getElementById('hdg').textContent = heading==null?'-':Math.round(heading)+'&deg; '+compass16(heading);
 }
 function compass16(deg){const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
   return dirs[Math.round(deg/22.5)%16];}
@@ -974,7 +974,7 @@ if('geolocation' in navigator){
       {color:'#2f6fed',weight:2,dashArray:'6 6',opacity:.8}).addTo(map);
     updateReadout();
   }, err=>{
-    document.getElementById('statusline').textContent='GPS blocked â€” enable location';
+    document.getElementById('statusline').textContent='GPS blocked - enable location';
   }, {enableHighAccuracy:true, maximumAge:1000, timeout:15000});
 } else {
   document.getElementById('statusline').textContent='No GPS on this device';
@@ -1019,7 +1019,7 @@ map.on('click', e=>{ openCapture(e.latlng.lat, e.latlng.lng, 'Map point captured
 document.getElementById('capCopy').onclick=()=>{
   if(!pendingCapture)return;
   navigator.clipboard?.writeText(fmtDD(pendingCapture.lat,pendingCapture.lng))
-    .then(()=>toast('Copied'),()=>toast('Copy failed â€” tap the coords'));
+    .then(()=>toast('Copied'),()=>toast('Copy failed - tap the coords'));
 };
 document.getElementById('capMaps').onclick=()=>{
   if(!pendingCapture)return;
@@ -1031,7 +1031,7 @@ document.getElementById('capSave').onclick=()=>{
   const n='HZ-'+String(points.length+1).padStart(2,'0');
   const p={name:n,lat:pendingCapture.lat,lng:pendingCapture.lng,t:Date.now()};
   points.push(p); save();
-  const m=L.marker([p.lat,p.lng],{icon:L.divIcon({html:'<div style="font-size:24px;">âš ï¸</div>',className:'',iconSize:[24,24],iconAnchor:[12,24]})})
+  const m=L.marker([p.lat,p.lng],{icon:L.divIcon({html:'<div style="font-size:24px;">\u26A0\uFE0F</div>',className:'',iconSize:[24,24],iconAnchor:[12,24]})})
     .addTo(map).bindTooltip(n,{permanent:false,direction:'top'});
   hazardMarkers[p.t]=m;
   toast('Saved '+n);
@@ -1058,9 +1058,9 @@ function drawHeading(){
   headingLine=L.polyline([[launch.lat,launch.lng],far],
     {color:'#e5a23f',weight:3,opacity:.95}).addTo(map);
   // arrowhead marker at the far end
-  headingLine._tip=L.marker(far,{icon:L.divIcon({html:'<div style="color:#e5a23f;font-weight:800;font-size:12px;background:rgba(13,17,23,.8);padding:2px 6px;border-radius:8px;border:1px solid #e5a23f;">'+Math.round(v)+'Â°</div>',className:'',iconSize:[40,20],iconAnchor:[20,10]})}).addTo(map);
+  headingLine._tip=L.marker(far,{icon:L.divIcon({html:'<div style="color:#e5a23f;font-weight:800;font-size:12px;background:rgba(13,17,23,.8);padding:2px 6px;border-radius:8px;border:1px solid #e5a23f;">'+Math.round(v)+'&deg;</div>',className:'',iconSize:[40,20],iconAnchor:[20,10]})}).addTo(map);
   map.fitBounds(L.latLngBounds([launch.lat,launch.lng],far).pad(0.3));
-  toast('Heading '+Math.round(v)+'Â° drawn');
+  toast('Heading '+Math.round(v)+'&deg; drawn');
 }
 document.getElementById('drawHdg').onclick=drawHeading;
 document.getElementById('hdgInput').addEventListener('keydown',e=>{if(e.key==='Enter')drawHeading();});
@@ -1092,9 +1092,9 @@ let satOn=false;
 document.getElementById('mapType').onclick=()=>{
   satOn=!satOn;
   if(satOn){ map.removeLayer(streets); sat.addTo(map); satLabels.addTo(map);
-    document.getElementById('mapType').textContent='ðŸ—ºï¸ Street'; }
+    document.getElementById('mapType').textContent='\uD83D\uDDFA\uFE0F Street'; }
   else { map.removeLayer(sat); map.removeLayer(satLabels); streets.addTo(map);
-    document.getElementById('mapType').textContent='ðŸ›°ï¸ Satellite'; }
+    document.getElementById('mapType').textContent='\uD83D\uDEF0\uFE0F Satellite'; }
 };
 const radEl=document.getElementById('radius');
 radEl.value=radiusNM;
@@ -1139,7 +1139,7 @@ document.getElementById('copyAll').onclick=()=>{
 
 // restore saved hazard markers
 points.forEach(p=>{
-  const m=L.marker([p.lat,p.lng],{icon:L.divIcon({html:'<div style="font-size:24px;">âš ï¸</div>',className:'',iconSize:[24,24],iconAnchor:[12,24]})})
+  const m=L.marker([p.lat,p.lng],{icon:L.divIcon({html:'<div style="font-size:24px;">\u26A0\uFE0F</div>',className:'',iconSize:[24,24],iconAnchor:[12,24]})})
     .addTo(map).bindTooltip(p.name,{permanent:false,direction:'top'});
   hazardMarkers[p.t]=m;
 });
