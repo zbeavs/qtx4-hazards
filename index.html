@@ -775,6 +775,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .toast.show{opacity:1;}
 
   .leaflet-container{background:#0d1117;}
+  #nfzNote{position:fixed;z-index:1000;left:50%;transform:translateX(-50%);
+    top:calc(env(safe-area-inset-top) + 100px);background:rgba(138,92,240,.18);
+    border:1px solid #8a5cf0;color:#c9b4ff;font-size:10px;padding:3px 10px;border-radius:10px;
+    pointer-events:none;white-space:nowrap;}
   .me-dot{width:18px;height:18px;background:var(--accent);border:3px solid #fff;border-radius:50%;
     box-shadow:0 0 0 6px rgba(47,111,237,.25),0 0 14px rgba(47,111,237,.6);}
   .me-arrow{position:absolute;left:50%;top:50%;width:0;height:0;
@@ -788,6 +792,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 <div id="topbar">
   <div class="title">PADDC Hazard GPS<small id="statusline">Acquiring GPS...</small></div>
   <button id="mapType" style="pointer-events:auto;flex:0;padding:8px 12px;font-size:12px;border-radius:10px;background:var(--panel);border:1px solid var(--line);color:var(--text);">Satellite</button>
+  <button id="nfzToggle" style="pointer-events:auto;flex:0;padding:8px 12px;font-size:12px;border-radius:10px;background:var(--panel);border:1px solid #8a5cf0;color:#c9b4ff;">NFZ on</button>
 </div>
 
 <div id="readout">
@@ -796,6 +801,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <span><b id="brg">-</b><i>heading from PADDC</i></span>
   </div>
 </div>
+<div id="nfzNote">NFZ shapes approximate - not survey data</div>
 
 <div id="controls">
   <div class="headingrow">
@@ -910,6 +916,46 @@ let launchMarker = L.marker([launch.lat, launch.lng], {icon:launchIcon, zIndexOf
 let aoCircle = L.circle([launch.lat, launch.lng], {
   radius: radiusNM*NM_TO_M, color:'#2f6fed', weight:3, fillColor:'#2f6fed', fillOpacity:0.06
 }).addTo(map);
+
+// ---- Permanent No-Fly Zones (NFZs) ----
+// APPROXIMATE shapes traced by eye from the ops NFZ map, geo-referenced to the
+// AO circle (PADDC center, 6.48 NM) and labelled towns. NOT survey data.
+// To replace with exact data later: swap the coordinate arrays below.
+const NFZ_STYLE={color:'#7b4fd0',weight:1.5,dashArray:'5 4',fillColor:'#8a5cf0',fillOpacity:0.30};
+const nfzPolys=[
+  // Far-west thin vertical strip (west edge, by FM 359)
+  [[29.735,-95.835],[29.735,-95.828],[29.690,-95.820],[29.665,-95.818],[29.665,-95.826],[29.690,-95.828]],
+  // Large multi-part block: Four Corners -> Sugar Land (east-central, biggest zone)
+  [[29.700,-95.655],[29.700,-95.610],[29.685,-95.600],[29.660,-95.600],[29.640,-95.608],
+   [29.615,-95.605],[29.600,-95.612],[29.585,-95.612],[29.585,-95.640],[29.600,-95.650],
+   [29.620,-95.648],[29.635,-95.655],[29.655,-95.652],[29.675,-95.660]],
+  // Small blob NE (near Westheimer Pkwy, top)
+  [[29.730,-95.690],[29.730,-95.680],[29.722,-95.678],[29.718,-95.686],[29.724,-95.692]],
+  // Small blob upper-right (NE of Mission Bend)
+  [[29.728,-95.620],[29.730,-95.612],[29.722,-95.610],[29.720,-95.618]]
+];
+const nfzCircles=[
+  // Big circular zone west of Pecan Grove (near FM 723)
+  {c:[29.676,-95.790],r:2600},
+  // Mission Bend circle (right side)
+  {c:[29.690,-95.638],r:1200},
+  // Four Corners small circle (right, by I-69 edge)
+  {c:[29.676,-95.585],r:900},
+  // Circle lower-right near Sugar Land
+  {c:[29.610,-95.595],r:1100},
+  // Circle lower-right near Sugar Land #2
+  {c:[29.600,-95.615],r:900},
+  // Richmond circle (lower-left)
+  {c:[29.588,-95.740],r:1100},
+  // Rosenberg edge circle (bottom)
+  {c:[29.565,-95.705],r:1200},
+  // I-69 bottom circle
+  {c:[29.575,-95.700],r:800}
+];
+const nfzLayer=L.layerGroup();
+nfzPolys.forEach(p=>L.polygon(p,NFZ_STYLE).addTo(nfzLayer));
+nfzCircles.forEach(z=>L.circle(z.c,{radius:z.r,...NFZ_STYLE}).addTo(nfzLayer));
+nfzLayer.addTo(map);
 
 // me marker
 const meIcon = L.divIcon({html:'<div class="me-dot"></div>', className:'', iconSize:[18,18], iconAnchor:[9,9]});
@@ -1093,6 +1139,13 @@ document.getElementById('mapType').onclick=()=>{
     document.getElementById('mapType').textContent='Street'; }
   else { map.removeLayer(sat); map.removeLayer(satLabels); streets.addTo(map);
     document.getElementById('mapType').textContent='Satellite'; }
+};
+// NFZ toggle
+let nfzOn=true;
+document.getElementById('nfzToggle').onclick=()=>{
+  nfzOn=!nfzOn;
+  if(nfzOn){ nfzLayer.addTo(map); document.getElementById('nfzToggle').textContent='NFZ on'; }
+  else { map.removeLayer(nfzLayer); document.getElementById('nfzToggle').textContent='NFZ off'; }
 };
 const radEl=document.getElementById('radius');
 radEl.value=radiusNM;
