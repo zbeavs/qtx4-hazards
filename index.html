@@ -946,6 +946,12 @@ nfzOverlay.addTo(map);
 const meIcon = L.divIcon({html:'<div class="me-dot"></div>', className:'', iconSize:[18,18], iconAnchor:[9,9]});
 let meMarker = null, meLine = null;
 const hazardMarkers = {};
+// temporary drop-pin shown where the user taps/captures (before save)
+let tempPin = null;
+const tempPinIcon = L.divIcon({
+  html:'<div style="font-size:30px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5));">\uD83D\uDCCD</div>',
+  className:'', iconSize:[30,30], iconAnchor:[15,30]
+});
 
 // ---- helpers ----
 function fmtDD(lat,lng){ return lat.toFixed(6)+", "+lng.toFixed(6); }
@@ -1031,12 +1037,19 @@ function enableCompass(){
 // ---- capture flow ----
 function openCapture(lat,lng,title){
   pendingCapture={lat,lng};
+  // drop a temporary visual pin exactly where tapped/captured
+  if(tempPin) map.removeLayer(tempPin);
+  tempPin=L.marker([lat,lng],{icon:tempPinIcon,zIndexOffset:1200}).addTo(map);
   document.getElementById('capTitle').textContent=title||'Point captured';
   document.getElementById('capCoord').textContent=fmtDD(lat,lng);
   document.getElementById('capCoordSub').textContent=fmtDMS(lat,lng);
   document.getElementById('capOverlay').classList.add('show');
 }
-function closeCapture(){document.getElementById('capOverlay').classList.remove('show');pendingCapture=null;}
+function closeCapture(){
+  document.getElementById('capOverlay').classList.remove('show');
+  if(tempPin){ map.removeLayer(tempPin); tempPin=null; }
+  pendingCapture=null;
+}
 
 document.getElementById('captureMe').onclick=()=>{
   if(!me){toast('No GPS fix yet');return;}
