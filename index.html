@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>PADDC Hazard GPS</title>
+<title>QTX4 Hazard Hunter</title>
 <style>
 /* required styles */
 
@@ -692,31 +692,23 @@ svg.leaflet-image-layer.leaflet-interactive path {
     border-radius:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);
     box-shadow:0 2px 10px rgba(0,0,0,.3);}
   .chipbtn.nfz{border-color:#8a5cf0;color:#c9b4ff;}
-  .chipbtn.est{border-color:#e5a23f;color:#f0cf9a;}
-  /* Estimate popup */
-  #estSheet{max-width:420px;}
-  #estStage{position:relative;width:100%;background:#000;border-radius:10px;overflow:hidden;
-    margin:8px 0;touch-action:none;}
-  #estImg{display:block;width:100%;height:auto;user-select:none;-webkit-user-drag:none;}
-  #estStage .mk{position:absolute;transform:translate(-50%,-50%);pointer-events:none;}
-  #estStage .mk.horizon{width:100%;left:50%;height:0;border-top:2px dashed #3fd0ff;
-    transform:translate(-50%,0);box-shadow:0 0 0 1px rgba(0,0,0,.5);}
-  #estStage .mk.base{width:16px;height:16px;border-radius:50%;border:3px solid #e5484d;
-    background:rgba(229,72,77,.3);}
-  #estStage .mk.land{width:18px;height:18px;border-radius:3px;border:3px solid #3fd0ff;
-    background:rgba(63,208,255,.25);}
-  #estStage .mk.land2{width:18px;height:18px;border-radius:3px;border:3px solid #3fff9f;
-    background:rgba(63,255,159,.25);}
-  #estModeRow{display:flex;}
-  .btn-mini.active{background:var(--accent);color:#fff;border-color:var(--accent);}
-  #estStep{font-size:13px;font-weight:700;color:var(--accent);margin:2px 0 6px;}
-  #estResult{display:none;background:var(--panel2,#1c2230);border:1px solid var(--line,#30363d);
-    border-radius:10px;padding:10px 12px;margin:8px 0;}
-  #estResult b{font-size:20px;color:#fff;}
-  #estResult .rng{color:var(--muted);font-size:12px;margin-top:2px;}
-  #estBrgRow{display:flex;gap:8px;align-items:center;margin-top:8px;}
-  #estBrgRow input{flex:1;}
-  .est-note{font-size:11px;color:var(--muted);line-height:1.4;margin-top:6px;}
+  .chipbtn.ring{border-color:#3fd0ff;color:#aee9ff;}
+  .caplive{margin:8px 0;padding:8px 10px;border-radius:8px;background:var(--panel);
+    border:1px solid var(--line);color:var(--accent);font-weight:700;font-size:13px;text-align:center;}
+  .captypes{display:flex;gap:6px;margin:4px 0 2px;}
+  .typebtn{flex:1;padding:7px 0;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;}
+  .typebtn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  #guideBanner{position:fixed;z-index:1001;left:10px;right:10px;
+    top:calc(env(safe-area-inset-top) + 76px);display:none;pointer-events:none;}
+  #guideBanner .gb{pointer-events:auto;margin:0 auto;max-width:360px;background:var(--panel);
+    border:1px solid var(--accent);border-radius:12px;padding:8px 12px;display:flex;
+    align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.4);}
+  #guideArrow{font-size:22px;line-height:1;transition:transform .2s;color:var(--accent);}
+  #guideText{flex:1;font-size:13px;font-weight:700;color:var(--text);}
+  #guideText small{display:block;color:var(--muted);font-weight:500;font-size:11px;}
+  #guideStop{background:var(--hazard);color:#fff;border:none;border-radius:8px;
+    padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;}
 
   /* Slim single-line readout */
   #readout{position:fixed;z-index:1000;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 42px);
@@ -811,10 +803,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
 <div id="map"></div>
 
 <div id="topbar">
-  <div class="title">PADDC<small id="statusline">GPS...</small></div>
+  <div class="title">QTX4<small id="statusline">GPS...</small></div>
   <button id="mapType" class="chipbtn">Sat</button>
   <button id="nfzToggle" class="chipbtn nfz">NFZ</button>
-  <button id="estBtn" class="chipbtn est">Est</button>
+  <button id="ringToggle" class="chipbtn ring">Rings</button>
 </div>
 
 <div id="readout">
@@ -827,7 +819,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 <div id="controls">
   <div class="row">
     <input type="number" id="hdgInput" min="0" max="359" placeholder="hdg" inputmode="numeric">
-    <button class="btn-mini" id="drawHdg">Draw</button>
+    <button class="btn-mini" id="confirmHdg" style="display:none;">Confirm</button>
     <button class="btn-mini btn-mini-ghost" id="clearHdg">&times;</button>
   </div>
   <div class="row">
@@ -861,9 +853,16 @@ svg.leaflet-image-layer.leaflet-interactive path {
 <div class="overlay" id="capOverlay">
   <div class="sheet">
     <h3 id="capTitle">Hazard captured</h3>
-    <div class="sub" id="capSub">Tap the coordinates to select, or use a button below.</div>
+    <div class="sub" id="capSub">Drag the pin to fine-tune. Pick a type, then save.</div>
     <div class="coordbox" id="capCoord">-</div>
     <div class="coord-sub" id="capCoordSub"></div>
+    <div class="caplive" id="capLive">-</div>
+    <div class="captypes" id="capTypes">
+      <button class="typebtn" data-type="crane">Crane</button>
+      <button class="typebtn" data-type="tower">Tower</button>
+      <button class="typebtn" data-type="vehicle">Vehicle</button>
+      <button class="typebtn" data-type="other">Other</button>
+    </div>
     <div class="row">
       <button class="btn-copy" id="capCopy">Copy</button>
       <button class="btn-maps" id="capMaps">Open in Maps</button>
@@ -872,61 +871,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <button class="btn-launch" id="capSave">Save to list</button>
       <button class="btn-ghost" id="capClose">Close</button>
     </div>
-  </div>
-</div>
-
-<!-- Photo distance estimate popup -->
-<div class="overlay" id="estOverlay">
-  <div class="sheet" id="estSheet">
-    <h3>Estimate hazard distance</h3>
-    <div class="sub">Upload a photo taken from PADDC, then pick a method.</div>
-    <input type="file" id="estFile" accept="image/*" style="display:none">
-    <button class="btn-launch" id="estPick">Choose / take a photo</button>
-
-    <div id="estModeRow" style="display:none;gap:8px;margin:8px 0;flex-wrap:wrap;">
-      <button class="btn-mini" id="modeAuto">Auto (AI)</button>
-      <button class="btn-mini btn-mini-ghost" id="modeFar">Far (landmark)</button>
-      <button class="btn-mini btn-mini-ghost" id="modeNear">Near (horizon)</button>
-    </div>
-
-    <div id="estStep" style="display:none;"></div>
-    <div id="estStage" style="display:none;">
-      <img id="estImg" alt="">
-      <div class="mk horizon" id="mkHorizon" style="display:none;top:0;"></div>
-      <div class="mk base" id="mkBase" style="display:none;left:0;top:0;"></div>
-      <div class="mk land" id="mkLand" style="display:none;left:0;top:0;"></div>
-      <div class="mk land2" id="mkLand2" style="display:none;left:0;top:0;"></div>
-    </div>
-
-    <!-- LANDMARK (far) controls -->
-    <div id="landPanel" style="display:none;">
-      <div class="est-note" id="landHint">Tap two fixed landmarks in the photo (water tower, transmission tower, big building), set each on the map, then tap the hazard. Two anchors give a precise bearing and distance.</div>
-      <div class="row" style="margin-top:6px;">
-        <button class="btn-mini" id="landPickMap1">Set landmark 1 on map</button>
-        <span id="landStatus1" style="font-size:11px;color:var(--muted);align-self:center;">1: not set</span>
-      </div>
-      <div class="row" style="margin-top:6px;">
-        <button class="btn-mini" id="landPickMap2">Set landmark 2 on map</button>
-        <span id="landStatus2" style="font-size:11px;color:var(--muted);align-self:center;">2: not set</span>
-      </div>
-    </div>
-
-    <div id="estResult">
-      <b id="estDist">-</b>
-      <div class="rng" id="estRange"></div>
-      <div id="estBrgRow">
-        <span style="font-size:12px;color:var(--muted);" id="estBrgLabel">Bearing from PADDC</span>
-        <input type="number" id="estBrg" min="0" max="359" placeholder="deg" inputmode="numeric">
-      </div>
-      <div class="est-note" id="estResultNote">Enter the compass direction you were facing (0-359). The pin drops that far out along that bearing.</div>
-    </div>
-
-    <div class="row" style="margin-top:10px;">
-      <button class="btn-mini btn-mini-ghost" id="estRetap" style="display:none;">Re-tap</button>
-      <button class="btn-launch" id="estDrop" style="display:none;">Drop pin on map</button>
-      <button class="btn-ghost" id="estClose">Close</button>
-    </div>
-    <div class="est-note">All results are a ballpark, not a survey measurement. Far objects (on the horizon) are most reliable with the landmark method; the horizon method only works for objects clearly below the horizon within about a mile.</div>
   </div>
 </div>
 
@@ -941,6 +885,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
   </div>
   <div id="listitems"></div>
 </div>
+
+<div id="guideBanner"><div class="gb">
+  <div id="guideArrow">&#8593;</div>
+  <div id="guideText">-<small>guiding</small></div>
+  <button id="guideStop">Stop</button>
+</div></div>
 
 <div class="toast" id="toast"></div>
 
@@ -1042,9 +992,8 @@ function bearing(a,b){
   return (Math.atan2(y,x)*180/Math.PI+360)%360;
 }
 function metersToNice(m){
-  const mi=m/1609.344; const nm=m/1852;
-  if(nm<0.1) return Math.round(m*3.28084)+" ft";
-  return nm.toFixed(2)+" NM ("+mi.toFixed(2)+" mi)";
+  const mi=m/1609.344; const nm=m/1852; const km=m/1000;
+  return nm.toFixed(2)+" NM ("+mi.toFixed(2)+" mi / "+km.toFixed(2)+" km)";
 }
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
   clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),1600);}
@@ -1075,6 +1024,7 @@ if('geolocation' in navigator){
     meLine=L.polyline([[launch.lat,launch.lng],[me.lat,me.lng]],
       {color:'#2f6fed',weight:2,dashArray:'6 6',opacity:.8}).addTo(map);
     updateReadout();
+    if(guideTarget) updateGuide();
   }, err=>{
     document.getElementById('statusline').textContent='GPS blocked - enable location';
   }, {enableHighAccuracy:true, maximumAge:1000, timeout:15000});
@@ -1087,7 +1037,7 @@ function handleOrient(e){
   let h=null;
   if(e.webkitCompassHeading!=null) h=e.webkitCompassHeading;         // iOS
   else if(e.alpha!=null) h=(360-e.alpha);                            // Android approx
-  if(h!=null){heading=(h+360)%360;updateReadout();}
+  if(h!=null){heading=(h+360)%360;updateReadout();if(guideTarget) updateGuide();}
 }
 function enableCompass(){
   if(typeof DeviceOrientationEvent!=='undefined' &&
@@ -1102,14 +1052,30 @@ function enableCompass(){
 }
 
 // ---- capture flow ----
-function openCapture(lat,lng,title){
-  pendingCapture={lat,lng};
-  // drop a temporary visual pin exactly where tapped/captured
-  if(tempPin) map.removeLayer(tempPin);
-  tempPin=L.marker([lat,lng],{icon:tempPinIcon,zIndexOffset:1200}).addTo(map);
-  document.getElementById('capTitle').textContent=title||'Point captured';
+let capType='other';
+const TYPE_EMOJI={crane:'\uD83C\uDFD7\uFE0F',tower:'\uD83D\uDCE1',vehicle:'\uD83D\uDE9B',other:'\u26A0\uFE0F'};
+function hazEmoji(t){return TYPE_EMOJI[t]||TYPE_EMOJI.other;}
+function updateCapLive(lat,lng){
+  const d=haversine(launch,{lat,lng}), b=bearing(launch,{lat,lng});
+  document.getElementById('capLive').textContent=metersToNice(d)+'  \u2022  '+Math.round(b)+'\u00B0 '+compass16(b)+' from PADDC';
   document.getElementById('capCoord').textContent=fmtDD(lat,lng);
   document.getElementById('capCoordSub').textContent=fmtDMS(lat,lng);
+}
+function setCapType(t){
+  capType=t;
+  document.querySelectorAll('#capTypes .typebtn').forEach(b=>b.classList.toggle('active',b.dataset.type===t));
+}
+document.querySelectorAll('#capTypes .typebtn').forEach(b=>{ b.onclick=()=>setCapType(b.dataset.type); });
+
+function openCapture(lat,lng,title){
+  pendingCapture={lat,lng};
+  setCapType('other');
+  // drop a DRAGGABLE visual pin exactly where tapped/captured
+  if(tempPin) map.removeLayer(tempPin);
+  tempPin=L.marker([lat,lng],{icon:tempPinIcon,zIndexOffset:1200,draggable:true}).addTo(map);
+  tempPin.on('drag',ev=>{ const ll=ev.target.getLatLng(); pendingCapture={lat:ll.lat,lng:ll.lng}; updateCapLive(ll.lat,ll.lng); });
+  document.getElementById('capTitle').textContent=title||'Point captured';
+  updateCapLive(lat,lng);
   document.getElementById('capOverlay').classList.add('show');
 }
 function closeCapture(){
@@ -1124,17 +1090,6 @@ document.getElementById('captureMe').onclick=()=>{
 };
 // tap map to capture a downrange / seen hazard
 map.on('click', e=>{
-  if(landPickActive){
-    const ll={lat:e.latlng.lat,lng:e.latlng.lng};
-    const d=haversine(launch, ll), b=bearing(launch, ll);
-    const txt=metersToNice(d)+' @ '+Math.round(b)+' deg';
-    if(EST.pickTarget===1){ EST.land1LatLng=ll; document.getElementById('landStatus1').textContent='1: '+txt; }
-    else if(EST.pickTarget===2){ EST.land2LatLng=ll; document.getElementById('landStatus2').textContent='2: '+txt; }
-    landPickActive=false; EST.pickTarget=0;
-    document.getElementById('estOverlay').classList.add('show');
-    if(typeof tryComputeFar==='function') tryComputeFar();
-    return;
-  }
   openCapture(e.latlng.lat, e.latlng.lng, 'Map point captured');
 });
 
@@ -1151,16 +1106,24 @@ document.getElementById('capMaps').onclick=()=>{
 document.getElementById('capSave').onclick=()=>{
   if(!pendingCapture)return;
   const n='HZ-'+String(points.length+1).padStart(2,'0');
-  const p={name:n,lat:pendingCapture.lat,lng:pendingCapture.lng,t:Date.now()};
+  const d=haversine(launch,pendingCapture), b=bearing(launch,pendingCapture);
+  const p={name:n,lat:pendingCapture.lat,lng:pendingCapture.lng,t:Date.now(),type:capType,
+           distM:Math.round(d),brg:Math.round(b)};
   points.push(p); save();
-  const m=L.marker([p.lat,p.lng],{icon:L.divIcon({html:'<div style="font-size:24px;">\u26A0\uFE0F</div>',className:'',iconSize:[24,24],iconAnchor:[12,24]})})
-    .addTo(map).bindTooltip(n,{permanent:false,direction:'top'});
-  hazardMarkers[p.t]=m;
-  toast('Saved '+n);
+  addHazardMarker(p);
+  toast('Saved '+n+' ('+capType+')');
   closeCapture();
 };
 document.getElementById('capClose').onclick=closeCapture;
 document.getElementById('capOverlay').onclick=e=>{if(e.target.id==='capOverlay')closeCapture();};
+
+// create a saved-hazard marker (type-colored emoji) with popup actions
+function addHazardMarker(p){
+  const m=L.marker([p.lat,p.lng],{icon:L.divIcon({html:'<div style="font-size:24px;">'+hazEmoji(p.type)+'</div>',className:'',iconSize:[24,24],iconAnchor:[12,24]})})
+    .addTo(map).bindTooltip(p.name+(p.type?' ('+p.type+')':''),{permanent:false,direction:'top'});
+  hazardMarkers[p.t]=m;
+  return m;
+}
 
 // ---- launch / recenter / radius ----
 // ---- heading line from PADDC ----
@@ -1184,305 +1147,18 @@ function drawHeading(){
   map.fitBounds(L.latLngBounds([launch.lat,launch.lng],far).pad(0.3));
   toast('Heading '+Math.round(v)+'&deg; drawn');
 }
-document.getElementById('drawHdg').onclick=drawHeading;
-document.getElementById('hdgInput').addEventListener('keydown',e=>{if(e.key==='Enter')drawHeading();});
+const hdgEl=document.getElementById('hdgInput');
+const confirmHdgBtn=document.getElementById('confirmHdg');
+// show Confirm while the number pad is up (input focused), hide otherwise
+hdgEl.addEventListener('focus',()=>{ confirmHdgBtn.style.display='inline-block'; });
+hdgEl.addEventListener('blur',()=>{ setTimeout(()=>{ confirmHdgBtn.style.display='none'; },150); });
+confirmHdgBtn.onmousedown=e=>e.preventDefault(); // keep focus so the tap registers
+confirmHdgBtn.onclick=()=>{ drawHeading(); hdgEl.blur(); };
+hdgEl.addEventListener('keydown',e=>{if(e.key==='Enter'){drawHeading(); hdgEl.blur();}});
 document.getElementById('clearHdg').onclick=()=>{
   if(headingLine){ if(headingLine._tip)map.removeLayer(headingLine._tip); map.removeLayer(headingLine); headingLine=null; }
   document.getElementById('hdgInput').value='';
 };
-
-// ---- photo distance estimate ----
-// Two modes:
-//  NEAR (horizon): depression angle below horizon -> distance. Only valid for
-//    objects clearly below the horizon within ~1 mile. Refuses to lie when far.
-//  FAR (landmark): user marks a known mapped landmark + the object in the photo,
-//    and sets where the landmark really is on the map. Object is placed along the
-//    bearing PADDC->landmark, at (roughly) the landmark's distance, nudged by the
-//    object's horizontal offset from the landmark in the frame.
-const EST = {
-  camH: 1.6,        // camera height, metres (standing eye level)
-  vfovDeg: 68,      // assumed vertical field of view (near mode only)
-  mode: null,       // 'near' | 'far'
-  // near:
-  horizonY: null, baseY: null,
-  // far (two-landmark triangulation):
-  land1XY: null, land2XY: null, objXY: null,   // photo-fraction taps
-  land1LatLng: null, land2LatLng: null,        // real mapped positions
-  pickTarget: 0,                               // which landmark the map-pick is for
-  step: 0,
-  dist: null, brgOut: null, latlng: null
-};
-let landPickActive=false;
-
-function openEst(){ resetEst(); document.getElementById('estOverlay').classList.add('show'); }
-function resetEst(){
-  EST.mode=null; EST.horizonY=null; EST.baseY=null; EST.step=0; EST.dist=null;
-  EST.land1XY=null; EST.land2XY=null; EST.objXY=null;
-  EST.land1LatLng=null; EST.land2LatLng=null; EST.pickTarget=0;
-  EST.brgOut=null; EST.latlng=null;
-  landPickActive=false;
-  ['estStage','estStep','estResult','estDrop','estRetap','estModeRow','landPanel','mkHorizon','mkBase','mkLand','mkLand2']
-    .forEach(id=>document.getElementById(id).style.display='none');
-  document.getElementById('estBrg').value='';
-  document.getElementById('landStatus1').textContent='1: not set';
-  document.getElementById('landStatus2').textContent='2: not set';
-}
-function setStep(t){const s=document.getElementById('estStep');s.textContent=t;s.style.display='block';}
-
-document.getElementById('estBtn').onclick=openEst;
-document.getElementById('estPick').onclick=()=>document.getElementById('estFile').click();
-document.getElementById('estFile').onchange=e=>{
-  const f=e.target.files && e.target.files[0]; if(!f) return;
-  const url=URL.createObjectURL(f);
-  const img=document.getElementById('estImg');
-  img.onload=()=>{
-    document.getElementById('estStage').style.display='block';
-    document.getElementById('estModeRow').style.display='flex';
-    ['estResult','estDrop','mkHorizon','mkBase','mkLand','mkLand2','landPanel'].forEach(id=>document.getElementById(id).style.display='none');
-    EST.mode=null; EST.step=0;
-    setStep('Pick a method: Auto (one tap, rough), Far (landmark, accurate), or Near (horizon, close objects).');
-  };
-  img.src=url;
-};
-
-// --- mode selection ---
-function setMode(m){
-  EST.mode=m; EST.step=1; EST.dist=null;
-  EST.horizonY=null; EST.baseY=null;
-  EST.land1XY=null; EST.land2XY=null; EST.objXY=null;
-  EST.land1LatLng=null; EST.land2LatLng=null; EST.pickTarget=0;
-  ['mkHorizon','mkBase','mkLand','mkLand2','estResult','estDrop'].forEach(id=>document.getElementById(id).style.display='none');
-  document.getElementById('estRetap').style.display='inline-block';
-  document.getElementById('modeAuto').classList.toggle('active', m==='auto');
-  document.getElementById('modeFar').classList.toggle('active', m==='far');
-  document.getElementById('modeNear').classList.toggle('active', m==='near');
-  if(m==='auto'){
-    document.getElementById('landPanel').style.display='none';
-    document.getElementById('estBrgLabel').textContent='Bearing you were facing';
-    setStep('Scanning the photo...');
-    runAuto();
-  } else if(m==='near'){
-    document.getElementById('landPanel').style.display='none';
-    document.getElementById('estBrgLabel').textContent='Bearing from PADDC';
-    setStep('Step 1: tap the HORIZON line (where sky meets land).');
-  } else {
-    document.getElementById('landPanel').style.display='block';
-    document.getElementById('landStatus1').textContent='1: not set';
-    document.getElementById('landStatus2').textContent='2: not set';
-    setStep('Step 1: tap LANDMARK 1 in the photo (e.g. the water tower).');
-  }
-}
-document.getElementById('modeAuto').onclick=()=>setMode('auto');
-document.getElementById('modeFar').onclick=()=>setMode('far');
-document.getElementById('modeNear').onclick=()=>setMode('near');
-
-// ===== AUTO (on-device, no server) =====
-// Honest on-device estimate: scan the image to auto-detect the horizon row
-// (sky->land brightness drop) and the most prominent object column rising above
-// it, then apply the same horizon-angle geometry. No cloud AI, no API key.
-// This is a ROUGH guess and labelled as such.
-function runAuto(){
-  const img=document.getElementById('estImg');
-  try{
-    const W=120, H=Math.max(40,Math.round(120*(img.naturalHeight/img.naturalWidth)));
-    const c=document.createElement('canvas'); c.width=W; c.height=H;
-    const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,W,H);
-    const data=ctx.getImageData(0,0,W,H).data;
-    // row brightness profile
-    const rowB=new Array(H).fill(0);
-    for(let y=0;y<H;y++){ let s=0; for(let x=0;x<W;x++){ const i=(y*W+x)*4; s+=(data[i]+data[i+1]+data[i+2]); } rowB[y]=s/(W*3); }
-    // horizon = row of largest brightness drop (bright sky -> darker land), upper 70%
-    let hz=Math.round(H*0.45), best=-1;
-    for(let y=2;y<Math.round(H*0.75);y++){ const drop=rowB[y-2]-rowB[y+2]; if(drop>best){best=drop;hz=y;} }
-    const horizonY=hz/H;
-    // object: scan a band just below horizon for the column whose dark structure
-    // rises highest above the horizon (a vertical thing poking up).
-    let objX=0.5, objBaseY=Math.min(1,horizonY+0.04), found=false;
-    const bandTop=Math.max(0,hz-Math.round(H*0.10)), bandBot=Math.min(H-1,hz+Math.round(H*0.18));
-    let bestScore=-1;
-    for(let x=2;x<W-2;x++){
-      let darkRun=0;
-      for(let y=bandTop;y<=bandBot;y++){ const i=(y*W+x)*4; const b=(data[i]+data[i+1]+data[i+2])/3; if(b<rowB[y]-18) darkRun++; }
-      if(darkRun>bestScore){ bestScore=darkRun; objX=x/W; found=darkRun>3; }
-    }
-    // the object's base ~ a bit below the horizon (we can't truly see its base far off);
-    // use a small fixed depression so the number is a conservative "far" ballpark.
-    const depressFrac=0.012; // ~0.8 deg below horizon -> deliberately far/rough
-    const aDeg=depressFrac*EST.vfovDeg;
-    const D=EST.camH/Math.tan(aDeg*Math.PI/180);
-    EST.dist=D; EST.step=3; EST.autoObjX=objX;
-    // show markers
-    const mkH=document.getElementById('mkHorizon'); mkH.style.top=(horizonY*100)+'%'; mkH.style.display='block';
-    const mkB=document.getElementById('mkBase'); mkB.style.left=(objX*100)+'%'; mkB.style.top=(Math.min(1,horizonY+0.03)*100)+'%'; mkB.style.display='block';
-    document.getElementById('estBrgRow').style.display='flex';
-    document.getElementById('estResult').style.display='block';
-    document.getElementById('estResultNote').style.display='block';
-    document.getElementById('estDist').textContent='~ '+metersToNice(D)+'  (rough)';
-    document.getElementById('estRange').textContent=found
-      ? 'Auto-detected the horizon and an object above it. This is a ROUGH guess from image shape only - it has no true depth data, so treat it as a ballpark.'
-      : 'Could not clearly find an object above the horizon. Number is a very rough placeholder - prefer the Far (landmark) method.';
-    document.getElementById('estResultNote').textContent='Direction is NOT in the photo, so enter the bearing you were facing. The pin drops along that bearing at the rough distance.';
-    document.getElementById('estDrop').style.display='inline-block';
-    setStep(found?'Rough auto estimate ready. Set bearing, drop pin.':'Weak detection - set bearing or switch method.');
-  }catch(err){
-    document.getElementById('estResult').style.display='block';
-    document.getElementById('estDist').textContent='Auto scan failed';
-    document.getElementById('estRange').textContent='Could not read the image pixels (browser security on some loaded files). Use the Far (landmark) or Near (horizon) method instead.';
-    document.getElementById('estResultNote').style.display='none';
-    document.getElementById('estDrop').style.display='none';
-    setStep('Auto failed - use another method.');
-  }
-}
-
-document.getElementById('estRetap').onclick=()=>{ if(EST.mode) setMode(EST.mode); };
-
-// --- taps on the photo ---
-document.getElementById('estStage').addEventListener('click',ev=>{
-  const img=document.getElementById('estImg');
-  const r=img.getBoundingClientRect();
-  const yFrac=Math.min(1,Math.max(0,(ev.clientY-r.top)/r.height));
-  const xFrac=Math.min(1,Math.max(0,(ev.clientX-r.left)/r.width));
-  if(EST.mode==='near') nearTap(xFrac,yFrac);
-  else if(EST.mode==='far') farTap(xFrac,yFrac);
-});
-
-// ===== NEAR (horizon) =====
-function nearTap(xFrac,yFrac){
-  if(EST.step===1){
-    EST.horizonY=yFrac;
-    const mk=document.getElementById('mkHorizon'); mk.style.top=(yFrac*100)+'%'; mk.style.display='block';
-    EST.step=2; setStep('Step 2: tap the BASE of the object (where it meets the ground).');
-  } else if(EST.step===2){
-    if(yFrac<=EST.horizonY){ toast('Base must be BELOW the horizon'); return; }
-    EST.baseY=yFrac;
-    const mk=document.getElementById('mkBase'); mk.style.left=(xFrac*100)+'%'; mk.style.top=(yFrac*100)+'%'; mk.style.display='block';
-    computeNear();
-  }
-}
-function computeNear(){
-  const dyFrac=EST.baseY-EST.horizonY;
-  const aDeg=dyFrac*EST.vfovDeg;
-  const a=aDeg*Math.PI/180;
-  // Guard: if the base is within ~1.2 deg of the horizon, the object is too far
-  // for this method to be meaningful -- refuse rather than print a wild number.
-  if(aDeg < 1.2){
-    document.getElementById('estResult').style.display='block';
-    document.getElementById('estDist').textContent='Too far for this method';
-    document.getElementById('estRange').textContent='The object sits essentially on the horizon, so the horizon method cannot measure it. Use the Far (landmark) method instead.';
-    document.getElementById('estBrgRow').style.display='none';
-    document.getElementById('estResultNote').style.display='none';
-    document.getElementById('estDrop').style.display='none';
-    setStep('Too far - switch to Far (landmark).');
-    return;
-  }
-  const D=EST.camH/Math.tan(a);
-  const dLo=EST.camH/Math.tan(a*1.35), dHi=EST.camH/Math.tan(a*0.65);
-  EST.dist=D; EST.step=3;
-  document.getElementById('estBrgRow').style.display='flex';
-  document.getElementById('estResultNote').style.display='block';
-  document.getElementById('estDist').textContent=metersToNice(D);
-  document.getElementById('estRange').textContent='Likely range: '+metersToNice(Math.max(0,dLo))+'  to  '+metersToNice(dHi);
-  document.getElementById('estResult').style.display='block';
-  document.getElementById('estDrop').style.display='inline-block';
-  document.getElementById('estBrgLabel').textContent='Bearing from PADDC';
-  setStep('Estimated. Set the bearing, then drop the pin.');
-}
-
-// ===== FAR (two-landmark triangulation) =====
-// Photo taps give each feature an x-fraction. Two landmarks with KNOWN real
-// bearings from PADDC let us solve the photo's angular scale and center WITHOUT
-// guessing field of view:  bearing(x) = b0 + k*x  (linear across a rectilinear
-// frame). Solve k and b0 from the two anchors, then the object's x gives its
-// exact bearing. Distance is interpolated between the two landmarks' known
-// distances by the object's x position (calibrated by two real points, not one).
-function startPick(n){
-  EST.pickTarget=n; landPickActive=true;
-  document.getElementById('estOverlay').classList.remove('show');
-  toast('Tap landmark '+n+' on the map');
-}
-document.getElementById('landPickMap1').onclick=()=>startPick(1);
-document.getElementById('landPickMap2').onclick=()=>startPick(2);
-
-function farTap(xFrac,yFrac){
-  if(EST.step===1){
-    EST.land1XY={x:xFrac,y:yFrac};
-    const mk=document.getElementById('mkLand'); mk.style.left=(xFrac*100)+'%'; mk.style.top=(yFrac*100)+'%'; mk.style.display='block';
-    EST.step=2; setStep('Step 2: tap LANDMARK 2 in the photo (a different fixed object).');
-  } else if(EST.step===2){
-    EST.land2XY={x:xFrac,y:yFrac};
-    const mk=document.getElementById('mkLand2'); mk.style.left=(xFrac*100)+'%'; mk.style.top=(yFrac*100)+'%'; mk.style.display='block';
-    EST.step=3; setStep('Step 3: tap the HAZARD in the photo.');
-  } else if(EST.step===3){
-    EST.objXY={x:xFrac,y:yFrac};
-    const mk=document.getElementById('mkBase'); mk.style.left=(xFrac*100)+'%'; mk.style.top=(yFrac*100)+'%'; mk.style.display='block';
-    EST.step=4;
-    setStep('Now set each landmark on the map (buttons below), then it computes.');
-    tryComputeFar();
-  }
-}
-
-function tryComputeFar(){
-  if(!EST.land1XY || !EST.land2XY || !EST.objXY) return;
-  if(!EST.land1LatLng || !EST.land2LatLng) return;   // still need both map picks
-  const d1=haversine(launch, EST.land1LatLng), b1=bearing(launch, EST.land1LatLng);
-  const d2=haversine(launch, EST.land2LatLng), b2=bearing(launch, EST.land2LatLng);
-  const x1=EST.land1XY.x, x2=EST.land2XY.x, xo=EST.objXY.x;
-  if(Math.abs(x2-x1) < 0.02){
-    showFarResult(null,null,'Pick two landmarks that are farther apart left-to-right in the photo.');
-    return;
-  }
-  // unwrap bearings so interpolation is continuous across 0/360
-  let bb1=b1, bb2=b2;
-  if(Math.abs(bb2-bb1) > 180){ if(bb2>bb1) bb1+=360; else bb2+=360; }
-  // linear bearing model: b = bb1 + (bb2-bb1)*(x-x1)/(x2-x1)
-  const frac=(xo-x1)/(x2-x1);
-  let objB=(bb1 + (bb2-bb1)*frac);
-  objB=((objB%360)+360)%360;
-  // distance interpolated between the two landmark distances by the same frac,
-  // clamped so an object just outside the pair is not wildly extrapolated.
-  const fClamp=Math.max(-0.5, Math.min(1.5, frac));
-  const objD=d1 + (d2-d1)*fClamp;
-  const [lat,lng]=destPoint(launch.lat,launch.lng,objB,objD);
-  EST.dist=objD; EST.brgOut=objB; EST.latlng=[lat,lng];
-  showFarResult(objB,objD,null,d1,d2);
-}
-function showFarResult(objB,objD,errMsg,d1,d2){
-  document.getElementById('estBrgRow').style.display='none';
-  document.getElementById('estResult').style.display='block';
-  document.getElementById('estResultNote').style.display='block';
-  if(errMsg){
-    document.getElementById('estDist').textContent='Need a better anchor pair';
-    document.getElementById('estRange').textContent=errMsg;
-    document.getElementById('estResultNote').textContent='';
-    document.getElementById('estDrop').style.display='none';
-    return;
-  }
-  document.getElementById('estDist').textContent=metersToNice(objD);
-  document.getElementById('estRange').textContent='Bearing '+Math.round(objB)+' deg from PADDC. Anchored to landmarks at '+metersToNice(d1)+' and '+metersToNice(d2)+'.';
-  document.getElementById('estResultNote').textContent='Direction is precise (two fixed anchors). Distance is interpolated between them - most accurate when the hazard sits between the two landmarks.';
-  document.getElementById('estDrop').style.display='inline-block';
-  setStep('Triangulated. Drop the pin.');
-}
-
-// --- drop pin ---
-document.getElementById('estDrop').onclick=()=>{
-  let lat,lng,label;
-  if(EST.mode==='near' || EST.mode==='auto'){
-    if(EST.dist==null){ toast('Estimate first'); return; }
-    const b=parseFloat(document.getElementById('estBrg').value);
-    if(isNaN(b)||b<0||b>360){ toast('Enter the bearing (0-359)'); return; }
-    [lat,lng]=destPoint(launch.lat,launch.lng,b,EST.dist);
-    label=(EST.mode==='auto'?'Photo auto est (~':'Photo estimate (~')+metersToNice(EST.dist)+')';
-  } else {
-    if(!EST.latlng){ toast('Set both landmarks on the map first'); return; }
-    [lat,lng]=EST.latlng;
-    label='Photo/landmark est (~'+metersToNice(EST.dist)+')';
-  }
-  document.getElementById('estOverlay').classList.remove('show');
-  openCapture(lat,lng,label);
-};
-document.getElementById('estClose').onclick=()=>document.getElementById('estOverlay').classList.remove('show');
-document.getElementById('estOverlay').onclick=e=>{if(e.target.id==='estOverlay')e.currentTarget.classList.remove('show');};
 
 // ---- settings / launch / recenter / radius ----
 document.getElementById('gear').onclick=()=>document.getElementById('setOverlay').classList.add('show');
@@ -1495,6 +1171,7 @@ document.getElementById('setLaunch').onclick=()=>{
   launchMarker.setLatLng([launch.lat,launch.lng]);
   aoCircle.setLatLng([launch.lat,launch.lng]);
   if(headingLine) drawHeading();
+  if(ringsOn) drawRings();
   save(); updateReadout(); toast('Launch point set');
   document.getElementById('setOverlay').classList.remove('show');
 };
@@ -1526,7 +1203,67 @@ radEl.oninput=()=>{
   radiusNM=parseFloat(radEl.value);
   document.getElementById('radVal').textContent=radiusNM.toFixed(2)+' NM';
   aoCircle.setRadius(radiusNM*NM_TO_M); save();
+  if(ringsOn) drawRings();
 };
+
+// ---- distance rings from PADDC (1/3/5 NM) ----
+let ringsOn = localStorage.getItem('paddc_rings')==='1';
+let ringLayer = L.layerGroup();
+function drawRings(){
+  ringLayer.clearLayers();
+  [1,3,5].forEach(nm=>{
+    L.circle([launch.lat,launch.lng],{radius:nm*NM_TO_M,color:'#3fd0ff',weight:1,
+      opacity:.5,fill:false,dashArray:'4 6'}).addTo(ringLayer);
+    const edge=destPoint(launch.lat,launch.lng,45,nm*NM_TO_M);
+    L.marker(edge,{interactive:false,icon:L.divIcon({html:'<div style="color:#3fd0ff;font-size:10px;font-weight:700;background:rgba(13,17,23,.6);padding:0 4px;border-radius:6px;">'+nm+' NM</div>',className:'',iconSize:[32,14],iconAnchor:[16,7]})}).addTo(ringLayer);
+  });
+}
+function applyRings(){
+  const btn=document.getElementById('ringToggle');
+  if(ringsOn){ drawRings(); ringLayer.addTo(map); btn.style.opacity='1'; }
+  else { map.removeLayer(ringLayer); btn.style.opacity='0.45'; }
+}
+document.getElementById('ringToggle').onclick=()=>{
+  ringsOn=!ringsOn; localStorage.setItem('paddc_rings', ringsOn?'1':'0'); applyRings();
+};
+applyRings();
+
+// ---- point-my-phone to draw the bearing (uses device compass) ----
+// Long-press the Confirm field label area: simplest is a dedicated gesture -
+// here, tapping the brg readout cell projects the line along the live heading.
+document.getElementById('brg').parentElement.style.cursor='pointer';
+document.getElementById('brg').parentElement.addEventListener('click',()=>{
+  if(heading==null){ enableCompass(); toast('Point your phone at the hazard, then tap again'); return; }
+  document.getElementById('hdgInput').value=Math.round(heading);
+  drawHeading();
+  toast('Drew bearing from your phone: '+Math.round(heading)+'\u00B0');
+});
+
+// ---- guide-me: live arrow + distance to a saved hazard ----
+let guideTarget=null;
+function startGuide(p){
+  guideTarget=p;
+  document.getElementById('guideBanner').style.display='block';
+  updateGuide();
+  if(me) map.setView([me.lat,me.lng], map.getZoom());
+  toast('Guiding to '+p.name);
+}
+function stopGuide(){
+  guideTarget=null;
+  document.getElementById('guideBanner').style.display='none';
+}
+function updateGuide(){
+  if(!guideTarget) return;
+  const from = me || launch;
+  const d=haversine(from,guideTarget), b=bearing(from,guideTarget);
+  document.getElementById('guideText').innerHTML=
+    guideTarget.name+' &bull; '+metersToNice(d)+
+    '<small>'+Math.round(b)+'\u00B0 '+compass16(b)+(me?' from you':' from PADDC (no GPS yet)')+'</small>';
+  // rotate arrow relative to phone heading if we have it, else to true north
+  const rel = (b - (heading!=null?heading:0) + 360)%360;
+  document.getElementById('guideArrow').style.transform='rotate('+rel+'deg)';
+}
+document.getElementById('guideStop').onclick=stopGuide;
 
 // ---- list ----
 function renderList(){
@@ -1534,20 +1271,31 @@ function renderList(){
   if(points.length===0){c.innerHTML='<div class="empty">No points captured yet.<br>Tap the map or use "Capture my position".</div>';return;}
   points.slice().reverse().forEach(p=>{
     const dd=fmtDD(p.lat,p.lng);
+    const dNow=haversine(launch,p), bNow=bearing(launch,p);
+    const typeTxt=(p.type?p.type:'other');
     const d=document.createElement('div'); d.className='item';
-    d.innerHTML=`<div class="nm"><span>${p.name}</span><span style="color:var(--muted);font-size:11px;">${new Date(p.t).toLocaleTimeString()}</span></div>
-      <div class="co">${dd}</div>
-      <div class="mo">${fmtDMS(p.lat,p.lng)}</div>
+    d.innerHTML=`<div class="nm"><span>${hazEmoji(p.type)} ${p.name} <small style="color:var(--muted);text-transform:uppercase;">${typeTxt}</small></span><span style="color:var(--muted);font-size:11px;">${new Date(p.t).toLocaleTimeString()}</span></div>
+      <div class="co">${metersToNice(dNow)} &bull; ${Math.round(bNow)}\u00B0 ${compass16(bNow)} from PADDC</div>
+      <div class="mo">${dd}</div>
       <div class="acts">
-        <button class="btn-copy">Copy</button>
+        <button class="btn-go">Go</button>
+        <button class="btn-guide">Guide</button>
+        <button class="btn-share">Share</button>
         <button class="btn-maps">Maps</button>
         <button class="btn-del">Delete</button>
       </div>`;
-    const [bCopy,bMaps,bDel]=d.querySelectorAll('button');
-    bCopy.onclick=()=>navigator.clipboard?.writeText(dd).then(()=>toast('Copied'));
+    const [bGo,bGuide,bShare,bMaps,bDel]=d.querySelectorAll('button');
+    bGo.onclick=()=>{ map.setView([p.lat,p.lng],15); if(hazardMarkers[p.t]) hazardMarkers[p.t].openTooltip(); document.getElementById('listpanel').classList.remove('show'); };
+    bGuide.onclick=()=>{ startGuide(p); document.getElementById('listpanel').classList.remove('show'); };
+    bShare.onclick=()=>{
+      const txt=`${p.name} (${typeTxt}): ${fmtDD(p.lat,p.lng)} - ${metersToNice(dNow)} @ ${Math.round(bNow)}\u00B0 from PADDC`;
+      if(navigator.share){ navigator.share({text:txt}).catch(()=>{}); }
+      else navigator.clipboard?.writeText(txt).then(()=>toast('Copied share text'));
+    };
     bMaps.onclick=()=>window.open('https://www.google.com/maps/search/?api=1&query='+p.lat+','+p.lng,'_blank');
     bDel.onclick=()=>{points=points.filter(x=>x.t!==p.t);
       if(hazardMarkers[p.t]){map.removeLayer(hazardMarkers[p.t]);delete hazardMarkers[p.t];}
+      if(guideTarget&&guideTarget.t===p.t) stopGuide();
       save();renderList();};
     c.appendChild(d);
   });
@@ -1561,11 +1309,7 @@ document.getElementById('copyAll').onclick=()=>{
 };
 
 // restore saved hazard markers
-points.forEach(p=>{
-  const m=L.marker([p.lat,p.lng],{icon:L.divIcon({html:'<div style="font-size:24px;">\u26A0\uFE0F</div>',className:'',iconSize:[24,24],iconAnchor:[12,24]})})
-    .addTo(map).bindTooltip(p.name,{permanent:false,direction:'top'});
-  hazardMarkers[p.t]=m;
-});
+points.forEach(p=>{ addHazardMarker(p); });
 document.getElementById('count').textContent=points.length;
 
 // kick compass on first touch (iOS needs a user gesture)
