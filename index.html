@@ -693,6 +693,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
     box-shadow:0 2px 10px rgba(0,0,0,.3);}
   .chipbtn.nfz{border-color:#8a5cf0;color:#c9b4ff;}
   .chipbtn.ring{border-color:#3fd0ff;color:#aee9ff;}
+  #nfzDisc{position:fixed;z-index:1000;left:10px;right:10px;
+    top:calc(env(safe-area-inset-top) + 42px);pointer-events:none;
+    background:rgba(138,92,240,.16);border:1px solid #8a5cf0;color:#d8c7ff;
+    border-radius:8px;padding:3px 8px;font-size:10.5px;font-weight:600;
+    text-align:center;line-height:1.25;}
   .caplive{margin:8px 0;padding:8px 10px;border-radius:8px;background:var(--panel);
     border:1px solid var(--line);color:var(--accent);font-weight:700;font-size:13px;text-align:center;}
   .captypes{display:flex;gap:6px;margin:4px 0 2px;}
@@ -700,7 +705,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     background:var(--panel);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;}
   .typebtn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
   #guideBanner{position:fixed;z-index:1001;left:10px;right:10px;
-    top:calc(env(safe-area-inset-top) + 76px);display:none;pointer-events:none;}
+    top:calc(env(safe-area-inset-top) + 104px);display:none;pointer-events:none;}
   #guideBanner .gb{pointer-events:auto;margin:0 auto;max-width:360px;background:var(--panel);
     border:1px solid var(--accent);border-radius:12px;padding:8px 12px;display:flex;
     align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.4);}
@@ -711,7 +716,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;}
 
   /* Slim single-line readout */
-  #readout{position:fixed;z-index:1000;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 42px);
+  #readout{position:fixed;z-index:1000;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 70px);
     pointer-events:none;display:flex;}
   .statbar{pointer-events:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;
     display:flex;width:100%;box-shadow:0 2px 10px rgba(0,0,0,.3);overflow:hidden;}
@@ -809,6 +814,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <button id="ringToggle" class="chipbtn ring">Rings</button>
 </div>
 
+<div id="nfzDisc">NFZs shown are from older data &mdash; reference only, verify before relying on them.</div>
+
 <div id="readout">
   <div class="statbar">
     <span><b id="dist">-</b><i>dist</i></span>
@@ -821,8 +828,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <input type="number" id="hdgInput" min="0" max="359" placeholder="hdg" inputmode="numeric">
     <button class="btn-mini" id="drawHdg">Draw</button>
     <button class="btn-mini btn-mini-ghost" id="clearHdg">&times;</button>
-  </div>
-  <div class="row">
     <button class="btn-ghost btn-sq" id="openList"><span id="count">0</span></button>
     <button class="btn-ghost btn-sq" id="recenter">&#9678;</button>
     <button class="btn-ghost btn-sq" id="gear">&#9881;</button>
@@ -1217,15 +1222,15 @@ function drawRings(){
     L.marker(lbl,{interactive:false,icon:L.divIcon({html:'<div style="color:#3fd0ff;font-size:9px;font-weight:700;">'+a+'\u00B0</div>',className:'',iconSize:[24,12],iconAnchor:[12,6]})}).addTo(ringLayer);
   }
   [1,3,5].forEach(nm=>{
-    L.circle([launch.lat,launch.lng],{radius:nm*NM_TO_M,color:'#3fd0ff',weight:1,
-      opacity:.5,fill:false,dashArray:'4 6'}).addTo(ringLayer);
+    L.circle([launch.lat,launch.lng],{radius:nm*NM_TO_M,color:'#3fd0ff',weight:2.5,
+      opacity:.9,fill:false}).addTo(ringLayer);
     const edge=destPoint(launch.lat,launch.lng,22,nm*NM_TO_M);
-    L.marker(edge,{interactive:false,icon:L.divIcon({html:'<div style="color:#3fd0ff;font-size:10px;font-weight:700;background:rgba(13,17,23,.6);padding:0 4px;border-radius:6px;">'+nm+' NM</div>',className:'',iconSize:[32,14],iconAnchor:[16,7]})}).addTo(ringLayer);
+    L.marker(edge,{interactive:false,icon:L.divIcon({html:'<div style="color:#0a0e14;background:#3fd0ff;font-size:11px;font-weight:800;padding:1px 6px;border-radius:7px;">'+nm+' NM</div>',className:'',iconSize:[36,16],iconAnchor:[18,8]})}).addTo(ringLayer);
   });
 }
 function applyRings(){
   const btn=document.getElementById('ringToggle');
-  if(ringsOn){ drawRings(); ringLayer.addTo(map); btn.style.opacity='1'; }
+  if(ringsOn){ drawRings(); ringLayer.addTo(map); ringLayer.eachLayer(l=>{if(l.bringToFront)l.bringToFront();}); btn.style.opacity='1'; }
   else { map.removeLayer(ringLayer); btn.style.opacity='0.45'; }
 }
 document.getElementById('ringToggle').onclick=()=>{
