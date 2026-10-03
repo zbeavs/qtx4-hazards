@@ -700,20 +700,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
     text-align:center;line-height:1.25;}
   .caplive{margin:8px 0;padding:8px 10px;border-radius:8px;background:var(--panel);
     border:1px solid var(--line);color:var(--accent);font-weight:700;font-size:13px;text-align:center;}
-  .captypes{display:flex;gap:6px;margin:4px 0 2px;}
-  .typebtn{flex:1;padding:7px 0;border-radius:8px;border:1px solid var(--line);
-    background:var(--panel);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;}
-  .typebtn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
-  #guideBanner{position:fixed;z-index:1001;left:10px;right:10px;
-    top:calc(env(safe-area-inset-top) + 104px);display:none;pointer-events:none;}
-  #guideBanner .gb{pointer-events:auto;margin:0 auto;max-width:360px;background:var(--panel);
-    border:1px solid var(--accent);border-radius:12px;padding:8px 12px;display:flex;
-    align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.4);}
-  #guideArrow{font-size:22px;line-height:1;transition:transform .2s;color:var(--accent);}
-  #guideText{flex:1;font-size:13px;font-weight:700;color:var(--text);}
-  #guideText small{display:block;color:var(--muted);font-weight:500;font-size:11px;}
-  #guideStop{background:var(--hazard);color:#fff;border:none;border-radius:8px;
-    padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;}
+  .capname{width:100%;box-sizing:border-box;margin:4px 0 2px;padding:9px 10px;border-radius:8px;
+    border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:14px;font-weight:600;}
+  .capname::placeholder{color:var(--muted);font-weight:500;}
+  .btn-north{min-width:34px;flex:0 0 auto;border:1px solid #3fd0ff;color:#aee9ff;background:var(--panel);}
+  .btn-north.mag{border-color:#e5a23f;color:#f0cf9a;}
 
   /* Slim single-line readout */
   #readout{position:fixed;z-index:1000;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 70px);
@@ -826,6 +817,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 <div id="controls">
   <div class="row">
     <input type="number" id="hdgInput" min="0" max="359" placeholder="hdg" inputmode="numeric">
+    <button class="btn-mini btn-north" id="northToggle" title="True vs Magnetic north">T</button>
     <button class="btn-mini" id="drawHdg">Draw</button>
     <button class="btn-mini btn-mini-ghost" id="clearHdg">&times;</button>
     <button class="btn-ghost btn-sq" id="openList"><span id="count">0</span></button>
@@ -857,16 +849,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
 <div class="overlay" id="capOverlay">
   <div class="sheet">
     <h3 id="capTitle">Hazard captured</h3>
-    <div class="sub" id="capSub">Drag the pin to fine-tune. Pick a type, then save.</div>
+    <div class="sub" id="capSub">Drag the pin to fine-tune. Name it, then save.</div>
     <div class="coordbox" id="capCoord">-</div>
     <div class="coord-sub" id="capCoordSub"></div>
     <div class="caplive" id="capLive">-</div>
-    <div class="captypes" id="capTypes">
-      <button class="typebtn" data-type="crane">Crane</button>
-      <button class="typebtn" data-type="tower">Tower</button>
-      <button class="typebtn" data-type="vehicle">Vehicle</button>
-      <button class="typebtn" data-type="other">Other</button>
-    </div>
+    <input type="text" id="capName" class="capname" placeholder="Name (e.g. HZ-01, West crane)" maxlength="40">
     <div class="row">
       <button class="btn-copy" id="capCopy">Copy</button>
       <button class="btn-maps" id="capMaps">Open in Maps</button>
@@ -889,12 +876,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
   </div>
   <div id="listitems"></div>
 </div>
-
-<div id="guideBanner"><div class="gb">
-  <div id="guideArrow">&#8593;</div>
-  <div id="guideText">-<small>guiding</small></div>
-  <button id="guideStop">Stop</button>
-</div></div>
 
 <div class="toast" id="toast"></div>
 
@@ -1032,7 +1013,6 @@ if('geolocation' in navigator){
     meLine=L.polyline([[launch.lat,launch.lng],[me.lat,me.lng]],
       {color:'#2f6fed',weight:2,dashArray:'6 6',opacity:.8}).addTo(map);
     updateReadout();
-    if(guideTarget) updateGuide();
   }, err=>{
     document.getElementById('statusline').textContent='GPS blocked - enable location';
   }, {enableHighAccuracy:true, maximumAge:1000, timeout:15000});
@@ -1045,7 +1025,7 @@ function handleOrient(e){
   let h=null;
   if(e.webkitCompassHeading!=null) h=e.webkitCompassHeading;         // iOS
   else if(e.alpha!=null) h=(360-e.alpha);                            // Android approx
-  if(h!=null){heading=(h+360)%360;updateReadout();if(guideTarget) updateGuide();}
+  if(h!=null){heading=(h+360)%360;updateReadout();}
 }
 function enableCompass(){
   if(typeof DeviceOrientationEvent!=='undefined' &&
@@ -1060,24 +1040,17 @@ function enableCompass(){
 }
 
 // ---- capture flow ----
-let capType='other';
-const TYPE_EMOJI={crane:'\uD83C\uDFD7\uFE0F',tower:'\uD83D\uDCE1',vehicle:'\uD83D\uDE9B',other:'\u26A0\uFE0F'};
-function hazEmoji(t){return TYPE_EMOJI[t]||TYPE_EMOJI.other;}
 function updateCapLive(lat,lng){
   const d=haversine(launch,{lat,lng}), b=bearing(launch,{lat,lng});
   document.getElementById('capLive').textContent=metersToNice(d)+'  \u2022  '+Math.round(b)+'\u00B0 '+compass16(b)+' from PADDC';
   document.getElementById('capCoord').textContent=fmtDD(lat,lng);
   document.getElementById('capCoordSub').textContent=fmtDMS(lat,lng);
 }
-function setCapType(t){
-  capType=t;
-  document.querySelectorAll('#capTypes .typebtn').forEach(b=>b.classList.toggle('active',b.dataset.type===t));
-}
-document.querySelectorAll('#capTypes .typebtn').forEach(b=>{ b.onclick=()=>setCapType(b.dataset.type); });
 
 function openCapture(lat,lng,title){
   pendingCapture={lat,lng};
-  setCapType('other');
+  // suggest a default name but let the user edit it
+  document.getElementById('capName').value='HZ-'+String(points.length+1).padStart(2,'0');
   // drop a DRAGGABLE visual pin exactly where tapped/captured
   if(tempPin) map.removeLayer(tempPin);
   tempPin=L.marker([lat,lng],{icon:tempPinIcon,zIndexOffset:1200,draggable:true}).addTo(map);
@@ -1109,22 +1082,23 @@ document.getElementById('capMaps').onclick=()=>{
 };
 document.getElementById('capSave').onclick=()=>{
   if(!pendingCapture)return;
-  const n='HZ-'+String(points.length+1).padStart(2,'0');
+  let n=(document.getElementById('capName').value||'').trim();
+  if(!n) n='HZ-'+String(points.length+1).padStart(2,'0');
   const d=haversine(launch,pendingCapture), b=bearing(launch,pendingCapture);
-  const p={name:n,lat:pendingCapture.lat,lng:pendingCapture.lng,t:Date.now(),type:capType,
+  const p={name:n,lat:pendingCapture.lat,lng:pendingCapture.lng,t:Date.now(),
            distM:Math.round(d),brg:Math.round(b)};
   points.push(p); save();
   addHazardMarker(p);
-  toast('Saved '+n+' ('+capType+')');
+  toast('Saved '+n);
   closeCapture();
 };
 document.getElementById('capClose').onclick=closeCapture;
 document.getElementById('capOverlay').onclick=e=>{if(e.target.id==='capOverlay')closeCapture();};
 
-// create a saved-hazard marker (type-colored emoji) with popup actions
+// create a saved-hazard marker with popup actions
 function addHazardMarker(p){
-  const m=L.marker([p.lat,p.lng],{icon:L.divIcon({html:'<div style="font-size:24px;">'+hazEmoji(p.type)+'</div>',className:'',iconSize:[24,24],iconAnchor:[12,24]})})
-    .addTo(map).bindTooltip(p.name+(p.type?' ('+p.type+')':''),{permanent:false,direction:'top'});
+  const m=L.marker([p.lat,p.lng],{icon:L.divIcon({html:'<div style="font-size:24px;">\u26A0\uFE0F</div>',className:'',iconSize:[24,24],iconAnchor:[12,24]})})
+    .addTo(map).bindTooltip(p.name,{permanent:false,direction:'top'});
   hazardMarkers[p.t]=m;
   return m;
 }
@@ -1140,17 +1114,38 @@ function destPoint(lat,lng,brgDeg,distM){
   return [la2*180/Math.PI, ((lo2*180/Math.PI+540)%360)-180];
 }
 function drawHeading(){
-  const v=parseFloat(document.getElementById('hdgInput').value);
-  if(isNaN(v)||v<0||v>360){toast('Enter a bearing 0â€“360');return;}
+  const raw=parseFloat(document.getElementById('hdgInput').value);
+  if(isNaN(raw)||raw<0||raw>360){toast('Enter a bearing 0-360');return;}
+  // Convert to TRUE bearing for drawing. If the user entered a MAGNETIC bearing,
+  // add the local declination (east-positive). QTX4 / Houston area ~ +1.5 deg E.
+  const vTrue = northMode==='mag' ? ((raw + MAG_DECLINATION + 360) % 360) : raw;
+  const v = vTrue;
   const far=destPoint(launch.lat,launch.lng,v, Math.max(radiusNM*NM_TO_M*1.1, 2000));
   if(headingLine){ if(headingLine._tip) map.removeLayer(headingLine._tip); map.removeLayer(headingLine); }
   headingLine=L.polyline([[launch.lat,launch.lng],far],
     {color:'#e5a23f',weight:3,opacity:.95}).addTo(map);
   // arrowhead marker at the far end
-  headingLine._tip=L.marker(far,{icon:L.divIcon({html:'<div style="color:#e5a23f;font-weight:800;font-size:12px;background:rgba(13,17,23,.8);padding:2px 6px;border-radius:8px;border:1px solid #e5a23f;">'+Math.round(v)+'&deg;</div>',className:'',iconSize:[40,20],iconAnchor:[20,10]})}).addTo(map);
+  headingLine._tip=L.marker(far,{icon:L.divIcon({html:'<div style="color:#e5a23f;font-weight:800;font-size:12px;background:rgba(13,17,23,.8);padding:2px 6px;border-radius:8px;border:1px solid #e5a23f;">'+Math.round(raw)+'&deg; '+(northMode==='mag'?'M':'T')+'</div>',className:'',iconSize:[48,20],iconAnchor:[24,10]})}).addTo(map);
   map.fitBounds(L.latLngBounds([launch.lat,launch.lng],far).pad(0.3));
-  toast('Heading '+Math.round(v)+'&deg; drawn');
+  toast('Heading '+Math.round(raw)+'\u00B0 '+(northMode==='mag'?'magnetic':'true')+' drawn');
 }
+// ---- true vs magnetic north ----
+const MAG_DECLINATION = 1.5; // degrees EAST for the QTX4 / Houston area (approx, 2026)
+let northMode = localStorage.getItem('paddc_north') || 'true';  // 'true' | 'mag'
+function applyNorth(){
+  const btn=document.getElementById('northToggle');
+  btn.textContent = northMode==='mag' ? 'M' : 'T';
+  btn.classList.toggle('mag', northMode==='mag');
+  btn.title = northMode==='mag' ? 'Magnetic north (tap for True)' : 'True north (tap for Magnetic)';
+}
+document.getElementById('northToggle').onclick=()=>{
+  northMode = northMode==='mag' ? 'true' : 'mag';
+  localStorage.setItem('paddc_north', northMode);
+  applyNorth();
+  toast(northMode==='mag' ? 'Headings read as MAGNETIC' : 'Headings read as TRUE north');
+  if(headingLine) drawHeading();
+};
+applyNorth();
 const hdgEl=document.getElementById('hdgInput');
 document.getElementById('drawHdg').onclick=drawHeading;
 hdgEl.addEventListener('keydown',e=>{if(e.key==='Enter'){drawHeading(); hdgEl.blur();}});
@@ -1249,32 +1244,6 @@ document.getElementById('brg').parentElement.addEventListener('click',()=>{
   toast('Drew bearing from your phone: '+Math.round(heading)+'\u00B0');
 });
 
-// ---- guide-me: live arrow + distance to a saved hazard ----
-let guideTarget=null;
-function startGuide(p){
-  guideTarget=p;
-  document.getElementById('guideBanner').style.display='block';
-  updateGuide();
-  if(me) map.setView([me.lat,me.lng], map.getZoom());
-  toast('Guiding to '+p.name);
-}
-function stopGuide(){
-  guideTarget=null;
-  document.getElementById('guideBanner').style.display='none';
-}
-function updateGuide(){
-  if(!guideTarget) return;
-  const from = me || launch;
-  const d=haversine(from,guideTarget), b=bearing(from,guideTarget);
-  document.getElementById('guideText').innerHTML=
-    guideTarget.name+' &bull; '+metersToNice(d)+
-    '<small>'+Math.round(b)+'\u00B0 '+compass16(b)+(me?' from you':' from PADDC (no GPS yet)')+'</small>';
-  // rotate arrow relative to phone heading if we have it, else to true north
-  const rel = (b - (heading!=null?heading:0) + 360)%360;
-  document.getElementById('guideArrow').style.transform='rotate('+rel+'deg)';
-}
-document.getElementById('guideStop').onclick=stopGuide;
-
 // ---- list ----
 function renderList(){
   const c=document.getElementById('listitems'); c.innerHTML='';
@@ -1282,30 +1251,33 @@ function renderList(){
   points.slice().reverse().forEach(p=>{
     const dd=fmtDD(p.lat,p.lng);
     const dNow=haversine(launch,p), bNow=bearing(launch,p);
-    const typeTxt=(p.type?p.type:'other');
     const d=document.createElement('div'); d.className='item';
-    d.innerHTML=`<div class="nm"><span>${hazEmoji(p.type)} ${p.name} <small style="color:var(--muted);text-transform:uppercase;">${typeTxt}</small></span><span style="color:var(--muted);font-size:11px;">${new Date(p.t).toLocaleTimeString()}</span></div>
+    d.innerHTML=`<div class="nm"><span>\u26A0\uFE0F ${p.name}</span><span style="color:var(--muted);font-size:11px;">${new Date(p.t).toLocaleTimeString()}</span></div>
       <div class="co">${metersToNice(dNow)} &bull; ${Math.round(bNow)}\u00B0 ${compass16(bNow)} from PADDC</div>
       <div class="mo">${dd}</div>
       <div class="acts">
         <button class="btn-go">Go</button>
-        <button class="btn-guide">Guide</button>
+        <button class="btn-rename">Rename</button>
         <button class="btn-share">Share</button>
         <button class="btn-maps">Maps</button>
         <button class="btn-del">Delete</button>
       </div>`;
-    const [bGo,bGuide,bShare,bMaps,bDel]=d.querySelectorAll('button');
+    const [bGo,bRename,bShare,bMaps,bDel]=d.querySelectorAll('button');
     bGo.onclick=()=>{ map.setView([p.lat,p.lng],15); if(hazardMarkers[p.t]) hazardMarkers[p.t].openTooltip(); document.getElementById('listpanel').classList.remove('show'); };
-    bGuide.onclick=()=>{ startGuide(p); document.getElementById('listpanel').classList.remove('show'); };
+    bRename.onclick=()=>{
+      const nn=prompt('Rename hazard', p.name);
+      if(nn!==null){ const v=nn.trim(); if(v){ p.name=v;
+        if(hazardMarkers[p.t]){ hazardMarkers[p.t].setTooltipContent(v); }
+        save(); renderList(); toast('Renamed to '+v); } }
+    };
     bShare.onclick=()=>{
-      const txt=`${p.name} (${typeTxt}): ${fmtDD(p.lat,p.lng)} - ${metersToNice(dNow)} @ ${Math.round(bNow)}\u00B0 from PADDC`;
+      const txt=`${p.name}: ${fmtDD(p.lat,p.lng)} - ${metersToNice(dNow)} @ ${Math.round(bNow)}\u00B0 from PADDC`;
       if(navigator.share){ navigator.share({text:txt}).catch(()=>{}); }
       else navigator.clipboard?.writeText(txt).then(()=>toast('Copied share text'));
     };
     bMaps.onclick=()=>window.open('https://www.google.com/maps/search/?api=1&query='+p.lat+','+p.lng,'_blank');
     bDel.onclick=()=>{points=points.filter(x=>x.t!==p.t);
       if(hazardMarkers[p.t]){map.removeLayer(hazardMarkers[p.t]);delete hazardMarkers[p.t];}
-      if(guideTarget&&guideTarget.t===p.t) stopGuide();
       save();renderList();};
     c.appendChild(d);
   });
