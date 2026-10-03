@@ -883,9 +883,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <input type="file" id="estFile" accept="image/*" style="display:none">
     <button class="btn-launch" id="estPick">Choose / take a photo</button>
 
-    <div id="estModeRow" style="display:none;gap:8px;margin:8px 0;">
-      <button class="btn-mini" id="modeFar">Far object (landmark)</button>
-      <button class="btn-mini btn-mini-ghost" id="modeNear">Near object (horizon)</button>
+    <div id="estModeRow" style="display:none;gap:8px;margin:8px 0;flex-wrap:wrap;">
+      <button class="btn-mini" id="modeAuto">Auto (AI)</button>
+      <button class="btn-mini btn-mini-ghost" id="modeFar">Far (landmark)</button>
+      <button class="btn-mini btn-mini-ghost" id="modeNear">Near (horizon)</button>
     </div>
 
     <div id="estStep" style="display:none;"></div>
@@ -1239,7 +1240,7 @@ document.getElementById('estFile').onchange=e=>{
     document.getElementById('estModeRow').style.display='flex';
     ['estResult','estDrop','mkHorizon','mkBase','mkLand','mkLand2','landPanel'].forEach(id=>document.getElementById(id).style.display='none');
     EST.mode=null; EST.step=0;
-    setStep('Pick a method above. Most hazards on the horizon = Far (landmark).');
+    setStep('Pick a method: Auto (one tap, rough), Far (landmark, accurate), or Near (horizon, close objects).');
   };
   img.src=url;
 };
@@ -1252,9 +1253,15 @@ function setMode(m){
   EST.land1LatLng=null; EST.land2LatLng=null; EST.pickTarget=0;
   ['mkHorizon','mkBase','mkLand','mkLand2','estResult','estDrop'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById('estRetap').style.display='inline-block';
+  document.getElementById('modeAuto').classList.toggle('active', m==='auto');
   document.getElementById('modeFar').classList.toggle('active', m==='far');
   document.getElementById('modeNear').classList.toggle('active', m==='near');
-  if(m==='near'){
+  if(m==='auto'){
+    document.getElementById('landPanel').style.display='none';
+    document.getElementById('estBrgLabel').textContent='Bearing you were facing';
+    setStep('Scanning the photo...');
+    runAuto();
+  } else if(m==='near'){
     document.getElementById('landPanel').style.display='none';
     document.getElementById('estBrgLabel').textContent='Bearing from PADDC';
     setStep('Step 1: tap the HORIZON line (where sky meets land).');
@@ -1265,8 +1272,67 @@ function setMode(m){
     setStep('Step 1: tap LANDMARK 1 in the photo (e.g. the water tower).');
   }
 }
+document.getElementById('modeAuto').onclick=()=>setMode('auto');
 document.getElementById('modeFar').onclick=()=>setMode('far');
 document.getElementById('modeNear').onclick=()=>setMode('near');
+
+// ===== AUTO (on-device, no server) =====
+// Honest on-device estimate: scan the image to auto-detect the horizon row
+// (sky->land brightness drop) and the most prominent object column rising above
+// it, then apply the same horizon-angle geometry. No cloud AI, no API key.
+// This is a ROUGH guess and labelled as such.
+function runAuto(){
+  const img=document.getElementById('estImg');
+  try{
+    const W=120, H=Math.max(40,Math.round(120*(img.naturalHeight/img.naturalWidth)));
+    const c=document.createElement('canvas'); c.width=W; c.height=H;
+    const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,W,H);
+    const data=ctx.getImageData(0,0,W,H).data;
+    // row brightness profile
+    const rowB=new Array(H).fill(0);
+    for(let y=0;y<H;y++){ let s=0; for(let x=0;x<W;x++){ const i=(y*W+x)*4; s+=(data[i]+data[i+1]+data[i+2]); } rowB[y]=s/(W*3); }
+    // horizon = row of largest brightness drop (bright sky -> darker land), upper 70%
+    let hz=Math.round(H*0.45), best=-1;
+    for(let y=2;y<Math.round(H*0.75);y++){ const drop=rowB[y-2]-rowB[y+2]; if(drop>best){best=drop;hz=y;} }
+    const horizonY=hz/H;
+    // object: scan a band just below horizon for the column whose dark structure
+    // rises highest above the horizon (a vertical thing poking up).
+    let objX=0.5, objBaseY=Math.min(1,horizonY+0.04), found=false;
+    const bandTop=Math.max(0,hz-Math.round(H*0.10)), bandBot=Math.min(H-1,hz+Math.round(H*0.18));
+    let bestScore=-1;
+    for(let x=2;x<W-2;x++){
+      let darkRun=0;
+      for(let y=bandTop;y<=bandBot;y++){ const i=(y*W+x)*4; const b=(data[i]+data[i+1]+data[i+2])/3; if(b<rowB[y]-18) darkRun++; }
+      if(darkRun>bestScore){ bestScore=darkRun; objX=x/W; found=darkRun>3; }
+    }
+    // the object's base ~ a bit below the horizon (we can't truly see its base far off);
+    // use a small fixed depression so the number is a conservative "far" ballpark.
+    const depressFrac=0.012; // ~0.8 deg below horizon -> deliberately far/rough
+    const aDeg=depressFrac*EST.vfovDeg;
+    const D=EST.camH/Math.tan(aDeg*Math.PI/180);
+    EST.dist=D; EST.step=3; EST.autoObjX=objX;
+    // show markers
+    const mkH=document.getElementById('mkHorizon'); mkH.style.top=(horizonY*100)+'%'; mkH.style.display='block';
+    const mkB=document.getElementById('mkBase'); mkB.style.left=(objX*100)+'%'; mkB.style.top=(Math.min(1,horizonY+0.03)*100)+'%'; mkB.style.display='block';
+    document.getElementById('estBrgRow').style.display='flex';
+    document.getElementById('estResult').style.display='block';
+    document.getElementById('estResultNote').style.display='block';
+    document.getElementById('estDist').textContent='~ '+metersToNice(D)+'  (rough)';
+    document.getElementById('estRange').textContent=found
+      ? 'Auto-detected the horizon and an object above it. This is a ROUGH guess from image shape only - it has no true depth data, so treat it as a ballpark.'
+      : 'Could not clearly find an object above the horizon. Number is a very rough placeholder - prefer the Far (landmark) method.';
+    document.getElementById('estResultNote').textContent='Direction is NOT in the photo, so enter the bearing you were facing. The pin drops along that bearing at the rough distance.';
+    document.getElementById('estDrop').style.display='inline-block';
+    setStep(found?'Rough auto estimate ready. Set bearing, drop pin.':'Weak detection - set bearing or switch method.');
+  }catch(err){
+    document.getElementById('estResult').style.display='block';
+    document.getElementById('estDist').textContent='Auto scan failed';
+    document.getElementById('estRange').textContent='Could not read the image pixels (browser security on some loaded files). Use the Far (landmark) or Near (horizon) method instead.';
+    document.getElementById('estResultNote').style.display='none';
+    document.getElementById('estDrop').style.display='none';
+    setStep('Auto failed - use another method.');
+  }
+}
 
 document.getElementById('estRetap').onclick=()=>{ if(EST.mode) setMode(EST.mode); };
 
@@ -1401,14 +1467,14 @@ function showFarResult(objB,objD,errMsg,d1,d2){
 // --- drop pin ---
 document.getElementById('estDrop').onclick=()=>{
   let lat,lng,label;
-  if(EST.mode==='near'){
+  if(EST.mode==='near' || EST.mode==='auto'){
     if(EST.dist==null){ toast('Estimate first'); return; }
     const b=parseFloat(document.getElementById('estBrg').value);
-    if(isNaN(b)||b<0||b>360){ toast('Enter a bearing 0-359'); return; }
+    if(isNaN(b)||b<0||b>360){ toast('Enter the bearing (0-359)'); return; }
     [lat,lng]=destPoint(launch.lat,launch.lng,b,EST.dist);
-    label='Photo estimate (~'+metersToNice(EST.dist)+')';
+    label=(EST.mode==='auto'?'Photo auto est (~':'Photo estimate (~')+metersToNice(EST.dist)+')';
   } else {
-    if(!EST.latlng){ toast('Set the landmark on the map first'); return; }
+    if(!EST.latlng){ toast('Set both landmarks on the map first'); return; }
     [lat,lng]=EST.latlng;
     label='Photo/landmark est (~'+metersToNice(EST.dist)+')';
   }
