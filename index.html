@@ -703,6 +703,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
     transform:translate(-50%,0);box-shadow:0 0 0 1px rgba(0,0,0,.5);}
   #estStage .mk.base{width:16px;height:16px;border-radius:50%;border:3px solid #e5484d;
     background:rgba(229,72,77,.3);}
+  #estStage .mk.land{width:18px;height:18px;border-radius:3px;border:3px solid #3fd0ff;
+    background:rgba(63,208,255,.25);}
+  #estModeRow{display:flex;}
+  .btn-mini.active{background:var(--accent);color:#fff;border-color:var(--accent);}
   #estStep{font-size:13px;font-weight:700;color:var(--accent);margin:2px 0 6px;}
   #estResult{display:none;background:var(--panel2,#1c2230);border:1px solid var(--line,#30363d);
     border-radius:10px;padding:10px 12px;margin:8px 0;}
@@ -873,30 +877,48 @@ svg.leaflet-image-layer.leaflet-interactive path {
 <div class="overlay" id="estOverlay">
   <div class="sheet" id="estSheet">
     <h3>Estimate hazard distance</h3>
-    <div class="sub">Upload a photo taken from PADDC, then tap the horizon and the base of the object.</div>
+    <div class="sub">Upload a photo taken from PADDC, then pick a method.</div>
     <input type="file" id="estFile" accept="image/*" style="display:none">
     <button class="btn-launch" id="estPick">Choose / take a photo</button>
+
+    <div id="estModeRow" style="display:none;gap:8px;margin:8px 0;">
+      <button class="btn-mini" id="modeFar">Far object (landmark)</button>
+      <button class="btn-mini btn-mini-ghost" id="modeNear">Near object (horizon)</button>
+    </div>
+
     <div id="estStep" style="display:none;"></div>
     <div id="estStage" style="display:none;">
       <img id="estImg" alt="">
       <div class="mk horizon" id="mkHorizon" style="display:none;top:0;"></div>
       <div class="mk base" id="mkBase" style="display:none;left:0;top:0;"></div>
+      <div class="mk land" id="mkLand" style="display:none;left:0;top:0;"></div>
     </div>
+
+    <!-- LANDMARK (far) controls -->
+    <div id="landPanel" style="display:none;">
+      <div class="est-note" id="landHint">Pick a mapped landmark near the object (a water tower, tower, big building). Set where it is, then tap it and the object in the photo.</div>
+      <div class="row" style="margin-top:6px;">
+        <button class="btn-mini" id="landPickMap">Set landmark on map</button>
+        <span id="landStatus" style="font-size:11px;color:var(--muted);align-self:center;">no landmark set</span>
+      </div>
+    </div>
+
     <div id="estResult">
       <b id="estDist">-</b>
       <div class="rng" id="estRange"></div>
       <div id="estBrgRow">
-        <span style="font-size:12px;color:var(--muted);">Bearing from PADDC</span>
+        <span style="font-size:12px;color:var(--muted);" id="estBrgLabel">Bearing from PADDC</span>
         <input type="number" id="estBrg" min="0" max="359" placeholder="deg" inputmode="numeric">
       </div>
-      <div class="est-note">Enter the compass direction you were facing (0-359). The pin drops that far out along that bearing.</div>
+      <div class="est-note" id="estResultNote">Enter the compass direction you were facing (0-359). The pin drops that far out along that bearing.</div>
     </div>
+
     <div class="row" style="margin-top:10px;">
       <button class="btn-mini btn-mini-ghost" id="estRetap" style="display:none;">Re-tap</button>
       <button class="btn-launch" id="estDrop" style="display:none;">Drop pin on map</button>
       <button class="btn-ghost" id="estClose">Close</button>
     </div>
-    <div class="est-note">Works best on flat ground with a clear horizon and the object's base visible. Result is a ballpark, not a survey measurement - accuracy drops the farther the object is.</div>
+    <div class="est-note">All results are a ballpark, not a survey measurement. Far objects (on the horizon) are most reliable with the landmark method; the horizon method only works for objects clearly below the horizon within about a mile.</div>
   </div>
 </div>
 
@@ -1093,7 +1115,18 @@ document.getElementById('captureMe').onclick=()=>{
   openCapture(me.lat,me.lng,'My position captured');
 };
 // tap map to capture a downrange / seen hazard
-map.on('click', e=>{ openCapture(e.latlng.lat, e.latlng.lng, 'Map point captured'); });
+map.on('click', e=>{
+  if(landPickActive){
+    EST.landLatLng={lat:e.latlng.lat,lng:e.latlng.lng};
+    landPickActive=false;
+    const d=haversine(launch, EST.landLatLng), b=bearing(launch, EST.landLatLng);
+    document.getElementById('landStatus').textContent='landmark set: '+metersToNice(d)+' @ '+Math.round(b)+' deg';
+    document.getElementById('estOverlay').classList.add('show');
+    if(typeof tryComputeFar==='function') tryComputeFar();
+    return;
+  }
+  openCapture(e.latlng.lat, e.latlng.lng, 'Map point captured');
+});
 
 document.getElementById('capCopy').onclick=()=>{
   if(!pendingCapture)return;
@@ -1149,31 +1182,41 @@ document.getElementById('clearHdg').onclick=()=>{
 };
 
 // ---- photo distance estimate ----
-// Model: camera at PADDC, roughly eye height. Object sits on flat ground.
-// The vertical angle below the true horizon to the object's base gives range:
-//   depression angle  a = (horizonY - baseY) / imgHeight * verticalFOV
-//   distance          D = cameraHeight / tan(a)
-// Phone cameras ~ 60-70 deg vertical FOV when held in portrait; we use 68.
+// Two modes:
+//  NEAR (horizon): depression angle below horizon -> distance. Only valid for
+//    objects clearly below the horizon within ~1 mile. Refuses to lie when far.
+//  FAR (landmark): user marks a known mapped landmark + the object in the photo,
+//    and sets where the landmark really is on the map. Object is placed along the
+//    bearing PADDC->landmark, at (roughly) the landmark's distance, nudged by the
+//    object's horizontal offset from the landmark in the frame.
 const EST = {
   camH: 1.6,        // camera height, metres (standing eye level)
   vfovDeg: 68,      // assumed vertical field of view, portrait phone photo
-  horizonY: null,   // fraction 0..1 down the image
-  baseY: null,
-  step: 0,          // 0 none, 1 need horizon, 2 need base, 3 done
-  dist: null        // metres
+  hfovDeg: 52,      // assumed horizontal field of view
+  mode: null,       // 'near' | 'far'
+  // near:
+  horizonY: null, baseY: null,
+  // far:
+  landXY: null,     // {x,y} frac of landmark tap in photo
+  objXY: null,      // {x,y} frac of object tap in photo
+  landLatLng: null, // real mapped position of landmark
+  step: 0,
+  dist: null, brgOut: null, latlng: null
 };
+let landPickActive=false;
+
 function openEst(){ resetEst(); document.getElementById('estOverlay').classList.add('show'); }
 function resetEst(){
-  EST.horizonY=null; EST.baseY=null; EST.step=0; EST.dist=null;
-  document.getElementById('estStage').style.display='none';
-  document.getElementById('estStep').style.display='none';
-  document.getElementById('estResult').style.display='none';
-  document.getElementById('estDrop').style.display='none';
-  document.getElementById('estRetap').style.display='none';
-  document.getElementById('mkHorizon').style.display='none';
-  document.getElementById('mkBase').style.display='none';
+  EST.mode=null; EST.horizonY=null; EST.baseY=null; EST.step=0; EST.dist=null;
+  EST.landXY=null; EST.objXY=null; EST.landLatLng=null; EST.brgOut=null; EST.latlng=null;
+  landPickActive=false;
+  ['estStage','estStep','estResult','estDrop','estRetap','estModeRow','landPanel','mkHorizon','mkBase','mkLand']
+    .forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById('estBrg').value='';
+  document.getElementById('landStatus').textContent='no landmark set';
 }
+function setStep(t){const s=document.getElementById('estStep');s.textContent=t;s.style.display='block';}
+
 document.getElementById('estBtn').onclick=openEst;
 document.getElementById('estPick').onclick=()=>document.getElementById('estFile').click();
 document.getElementById('estFile').onchange=e=>{
@@ -1182,71 +1225,147 @@ document.getElementById('estFile').onchange=e=>{
   const img=document.getElementById('estImg');
   img.onload=()=>{
     document.getElementById('estStage').style.display='block';
-    document.getElementById('estResult').style.display='none';
-    document.getElementById('estDrop').style.display='none';
-    document.getElementById('mkHorizon').style.display='none';
-    document.getElementById('mkBase').style.display='none';
-    EST.horizonY=null; EST.baseY=null; EST.step=1;
-    setStep('Step 1: tap the HORIZON line (where sky meets land).');
-    document.getElementById('estRetap').style.display='inline-block';
+    document.getElementById('estModeRow').style.display='flex';
+    ['estResult','estDrop','mkHorizon','mkBase','mkLand','landPanel'].forEach(id=>document.getElementById(id).style.display='none');
+    EST.mode=null; EST.step=0;
+    setStep('Pick a method above. Most hazards on the horizon = Far (landmark).');
   };
   img.src=url;
 };
-function setStep(t){const s=document.getElementById('estStep');s.textContent=t;s.style.display='block';}
-document.getElementById('estRetap').onclick=()=>{
-  EST.horizonY=null; EST.baseY=null; EST.step=1; EST.dist=null;
-  document.getElementById('mkHorizon').style.display='none';
-  document.getElementById('mkBase').style.display='none';
-  document.getElementById('estResult').style.display='none';
-  document.getElementById('estDrop').style.display='none';
-  setStep('Step 1: tap the HORIZON line (where sky meets land).');
-};
+
+// --- mode selection ---
+function setMode(m){
+  EST.mode=m; EST.step=1; EST.dist=null;
+  EST.horizonY=null; EST.baseY=null; EST.landXY=null; EST.objXY=null;
+  ['mkHorizon','mkBase','mkLand','estResult','estDrop'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('estRetap').style.display='inline-block';
+  document.getElementById('modeFar').classList.toggle('active', m==='far');
+  document.getElementById('modeNear').classList.toggle('active', m==='near');
+  if(m==='near'){
+    document.getElementById('landPanel').style.display='none';
+    document.getElementById('estBrgLabel').textContent='Bearing from PADDC';
+    setStep('Step 1: tap the HORIZON line (where sky meets land).');
+  } else {
+    document.getElementById('landPanel').style.display='block';
+    setStep('Step 1: tap the LANDMARK in the photo (e.g. the water tower).');
+  }
+}
+document.getElementById('modeFar').onclick=()=>setMode('far');
+document.getElementById('modeNear').onclick=()=>setMode('near');
+
+document.getElementById('estRetap').onclick=()=>{ if(EST.mode) setMode(EST.mode); };
+
+// --- taps on the photo ---
 document.getElementById('estStage').addEventListener('click',ev=>{
   const img=document.getElementById('estImg');
   const r=img.getBoundingClientRect();
   const yFrac=Math.min(1,Math.max(0,(ev.clientY-r.top)/r.height));
+  const xFrac=Math.min(1,Math.max(0,(ev.clientX-r.left)/r.width));
+  if(EST.mode==='near') nearTap(xFrac,yFrac);
+  else if(EST.mode==='far') farTap(xFrac,yFrac);
+});
+
+// ===== NEAR (horizon) =====
+function nearTap(xFrac,yFrac){
   if(EST.step===1){
     EST.horizonY=yFrac;
-    const mk=document.getElementById('mkHorizon');
-    mk.style.top=(yFrac*100)+'%'; mk.style.display='block';
-    EST.step=2;
-    setStep('Step 2: tap the BASE of the object (where it meets the ground).');
+    const mk=document.getElementById('mkHorizon'); mk.style.top=(yFrac*100)+'%'; mk.style.display='block';
+    EST.step=2; setStep('Step 2: tap the BASE of the object (where it meets the ground).');
   } else if(EST.step===2){
     if(yFrac<=EST.horizonY){ toast('Base must be BELOW the horizon'); return; }
     EST.baseY=yFrac;
-    const mk=document.getElementById('mkBase');
-    const r2=img.getBoundingClientRect();
-    const xFrac=Math.min(1,Math.max(0,(ev.clientX-r2.left)/r2.width));
-    mk.style.left=(xFrac*100)+'%'; mk.style.top=(yFrac*100)+'%'; mk.style.display='block';
-    computeEst();
+    const mk=document.getElementById('mkBase'); mk.style.left=(xFrac*100)+'%'; mk.style.top=(yFrac*100)+'%'; mk.style.display='block';
+    computeNear();
   }
-});
-function computeEst(){
-  // depression angle below horizon
-  const img=document.getElementById('estImg');
-  const h=img.naturalHeight||img.height||1;
-  const dyFrac=EST.baseY-EST.horizonY;                 // fraction of image height
-  const aDeg=dyFrac*EST.vfovDeg;                        // degrees below horizon
+}
+function computeNear(){
+  const dyFrac=EST.baseY-EST.horizonY;
+  const aDeg=dyFrac*EST.vfovDeg;
   const a=aDeg*Math.PI/180;
-  if(a<=0.00005){ toast('Too close to the horizon to estimate'); return; }
-  const D=EST.camH/Math.tan(a);                        // metres
+  // Guard: if the base is within ~1.2 deg of the horizon, the object is too far
+  // for this method to be meaningful -- refuse rather than print a wild number.
+  if(aDeg < 1.2){
+    document.getElementById('estResult').style.display='block';
+    document.getElementById('estDist').textContent='Too far for this method';
+    document.getElementById('estRange').textContent='The object sits essentially on the horizon, so the horizon method cannot measure it. Use the Far (landmark) method instead.';
+    document.getElementById('estBrgRow').style.display='none';
+    document.getElementById('estResultNote').style.display='none';
+    document.getElementById('estDrop').style.display='none';
+    setStep('Too far - switch to Far (landmark).');
+    return;
+  }
+  const D=EST.camH/Math.tan(a);
+  const dLo=EST.camH/Math.tan(a*1.35), dHi=EST.camH/Math.tan(a*0.65);
   EST.dist=D; EST.step=3;
-  // Build a range: angle read error ~ +/-25% of the gap => distance band
-  const dLo=EST.camH/Math.tan(a*1.35);
-  const dHi=EST.camH/Math.tan(a*0.65);
+  document.getElementById('estBrgRow').style.display='flex';
+  document.getElementById('estResultNote').style.display='block';
   document.getElementById('estDist').textContent=metersToNice(D);
   document.getElementById('estRange').textContent='Likely range: '+metersToNice(Math.max(0,dLo))+'  to  '+metersToNice(dHi);
   document.getElementById('estResult').style.display='block';
   document.getElementById('estDrop').style.display='inline-block';
+  document.getElementById('estBrgLabel').textContent='Bearing from PADDC';
   setStep('Estimated. Set the bearing, then drop the pin.');
 }
-document.getElementById('estDrop').onclick=()=>{
-  if(EST.dist==null){ toast('Estimate first'); return; }
-  const b=parseFloat(document.getElementById('estBrg').value);
-  if(isNaN(b)||b<0||b>360){ toast('Enter a bearing 0-359'); return; }
-  const [lat,lng]=destPoint(launch.lat,launch.lng,b,EST.dist);
+
+// ===== FAR (landmark) =====
+document.getElementById('landPickMap').onclick=()=>{
+  landPickActive=true;
   document.getElementById('estOverlay').classList.remove('show');
-  openCapture(lat,lng,'Photo estimate (~'+metersToNice(EST.dist)+')');
+  toast('Tap the landmark on the map');
+};
+// handled by a dedicated map click (added once, below)
+function farTap(xFrac,yFrac){
+  if(EST.step===1){
+    EST.landXY={x:xFrac,y:yFrac};
+    const mk=document.getElementById('mkLand'); mk.style.left=(xFrac*100)+'%'; mk.style.top=(yFrac*100)+'%'; mk.style.display='block';
+    EST.step=2; setStep('Step 2: tap the OBJECT (the hazard) in the photo.');
+  } else if(EST.step===2){
+    EST.objXY={x:xFrac,y:yFrac};
+    const mk=document.getElementById('mkBase'); mk.style.left=(xFrac*100)+'%'; mk.style.top=(yFrac*100)+'%'; mk.style.display='block';
+    EST.step=3;
+    setStep('Now set where that landmark really is: tap "Set landmark on map".');
+    tryComputeFar();
+  }
+}
+function tryComputeFar(){
+  if(!EST.landLatLng || !EST.landXY || !EST.objXY){ return; }
+  const landD=haversine(launch, EST.landLatLng);           // real metres PADDC->landmark
+  const landB=bearing(launch, EST.landLatLng);             // real bearing PADDC->landmark
+  // object's horizontal offset from landmark in the frame -> angular offset
+  const dxFrac=EST.objXY.x - EST.landXY.x;
+  const dAng=dxFrac*EST.hfovDeg;                            // degrees (right = +)
+  const objB=(landB + dAng + 360)%360;
+  // assume object is at a similar range to the landmark (both on the horizon);
+  // this is the honest approximation -- distance is the landmark's, bearing is corrected.
+  const objD=landD;
+  const [lat,lng]=destPoint(launch.lat,launch.lng,objB,objD);
+  EST.dist=objD; EST.brgOut=objB; EST.latlng=[lat,lng];
+  document.getElementById('estBrgRow').style.display='none';
+  document.getElementById('estResultNote').style.display='block';
+  document.getElementById('estResultNote').textContent='Bearing '+Math.round(objB)+' deg from PADDC, at about the landmark distance. Both assumed on the horizon.';
+  document.getElementById('estDist').textContent=metersToNice(objD);
+  document.getElementById('estRange').textContent='Based on the landmark being '+metersToNice(landD)+' out. Object placed on its bearing at a similar range.';
+  document.getElementById('estResult').style.display='block';
+  document.getElementById('estDrop').style.display='inline-block';
+  setStep('Estimated from landmark. Drop the pin.');
+}
+
+// --- drop pin ---
+document.getElementById('estDrop').onclick=()=>{
+  let lat,lng,label;
+  if(EST.mode==='near'){
+    if(EST.dist==null){ toast('Estimate first'); return; }
+    const b=parseFloat(document.getElementById('estBrg').value);
+    if(isNaN(b)||b<0||b>360){ toast('Enter a bearing 0-359'); return; }
+    [lat,lng]=destPoint(launch.lat,launch.lng,b,EST.dist);
+    label='Photo estimate (~'+metersToNice(EST.dist)+')';
+  } else {
+    if(!EST.latlng){ toast('Set the landmark on the map first'); return; }
+    [lat,lng]=EST.latlng;
+    label='Photo/landmark est (~'+metersToNice(EST.dist)+')';
+  }
+  document.getElementById('estOverlay').classList.remove('show');
+  openCapture(lat,lng,label);
 };
 document.getElementById('estClose').onclick=()=>document.getElementById('estOverlay').classList.remove('show');
 document.getElementById('estOverlay').onclick=e=>{if(e.target.id==='estOverlay')e.currentTarget.classList.remove('show');};
