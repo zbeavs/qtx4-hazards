@@ -705,6 +705,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
     background:rgba(229,72,77,.3);}
   #estStage .mk.land{width:18px;height:18px;border-radius:3px;border:3px solid #3fd0ff;
     background:rgba(63,208,255,.25);}
+  #estStage .mk.land2{width:18px;height:18px;border-radius:3px;border:3px solid #3fff9f;
+    background:rgba(63,255,159,.25);}
   #estModeRow{display:flex;}
   .btn-mini.active{background:var(--accent);color:#fff;border-color:var(--accent);}
   #estStep{font-size:13px;font-weight:700;color:var(--accent);margin:2px 0 6px;}
@@ -892,14 +894,19 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <div class="mk horizon" id="mkHorizon" style="display:none;top:0;"></div>
       <div class="mk base" id="mkBase" style="display:none;left:0;top:0;"></div>
       <div class="mk land" id="mkLand" style="display:none;left:0;top:0;"></div>
+      <div class="mk land2" id="mkLand2" style="display:none;left:0;top:0;"></div>
     </div>
 
     <!-- LANDMARK (far) controls -->
     <div id="landPanel" style="display:none;">
-      <div class="est-note" id="landHint">Pick a mapped landmark near the object (a water tower, tower, big building). Set where it is, then tap it and the object in the photo.</div>
+      <div class="est-note" id="landHint">Tap two fixed landmarks in the photo (water tower, transmission tower, big building), set each on the map, then tap the hazard. Two anchors give a precise bearing and distance.</div>
       <div class="row" style="margin-top:6px;">
-        <button class="btn-mini" id="landPickMap">Set landmark on map</button>
-        <span id="landStatus" style="font-size:11px;color:var(--muted);align-self:center;">no landmark set</span>
+        <button class="btn-mini" id="landPickMap1">Set landmark 1 on map</button>
+        <span id="landStatus1" style="font-size:11px;color:var(--muted);align-self:center;">1: not set</span>
+      </div>
+      <div class="row" style="margin-top:6px;">
+        <button class="btn-mini" id="landPickMap2">Set landmark 2 on map</button>
+        <span id="landStatus2" style="font-size:11px;color:var(--muted);align-self:center;">2: not set</span>
       </div>
     </div>
 
@@ -1117,10 +1124,12 @@ document.getElementById('captureMe').onclick=()=>{
 // tap map to capture a downrange / seen hazard
 map.on('click', e=>{
   if(landPickActive){
-    EST.landLatLng={lat:e.latlng.lat,lng:e.latlng.lng};
-    landPickActive=false;
-    const d=haversine(launch, EST.landLatLng), b=bearing(launch, EST.landLatLng);
-    document.getElementById('landStatus').textContent='landmark set: '+metersToNice(d)+' @ '+Math.round(b)+' deg';
+    const ll={lat:e.latlng.lat,lng:e.latlng.lng};
+    const d=haversine(launch, ll), b=bearing(launch, ll);
+    const txt=metersToNice(d)+' @ '+Math.round(b)+' deg';
+    if(EST.pickTarget===1){ EST.land1LatLng=ll; document.getElementById('landStatus1').textContent='1: '+txt; }
+    else if(EST.pickTarget===2){ EST.land2LatLng=ll; document.getElementById('landStatus2').textContent='2: '+txt; }
+    landPickActive=false; EST.pickTarget=0;
     document.getElementById('estOverlay').classList.add('show');
     if(typeof tryComputeFar==='function') tryComputeFar();
     return;
@@ -1191,15 +1200,14 @@ document.getElementById('clearHdg').onclick=()=>{
 //    object's horizontal offset from the landmark in the frame.
 const EST = {
   camH: 1.6,        // camera height, metres (standing eye level)
-  vfovDeg: 68,      // assumed vertical field of view, portrait phone photo
-  hfovDeg: 52,      // assumed horizontal field of view
+  vfovDeg: 68,      // assumed vertical field of view (near mode only)
   mode: null,       // 'near' | 'far'
   // near:
   horizonY: null, baseY: null,
-  // far:
-  landXY: null,     // {x,y} frac of landmark tap in photo
-  objXY: null,      // {x,y} frac of object tap in photo
-  landLatLng: null, // real mapped position of landmark
+  // far (two-landmark triangulation):
+  land1XY: null, land2XY: null, objXY: null,   // photo-fraction taps
+  land1LatLng: null, land2LatLng: null,        // real mapped positions
+  pickTarget: 0,                               // which landmark the map-pick is for
   step: 0,
   dist: null, brgOut: null, latlng: null
 };
@@ -1208,12 +1216,15 @@ let landPickActive=false;
 function openEst(){ resetEst(); document.getElementById('estOverlay').classList.add('show'); }
 function resetEst(){
   EST.mode=null; EST.horizonY=null; EST.baseY=null; EST.step=0; EST.dist=null;
-  EST.landXY=null; EST.objXY=null; EST.landLatLng=null; EST.brgOut=null; EST.latlng=null;
+  EST.land1XY=null; EST.land2XY=null; EST.objXY=null;
+  EST.land1LatLng=null; EST.land2LatLng=null; EST.pickTarget=0;
+  EST.brgOut=null; EST.latlng=null;
   landPickActive=false;
-  ['estStage','estStep','estResult','estDrop','estRetap','estModeRow','landPanel','mkHorizon','mkBase','mkLand']
+  ['estStage','estStep','estResult','estDrop','estRetap','estModeRow','landPanel','mkHorizon','mkBase','mkLand','mkLand2']
     .forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById('estBrg').value='';
-  document.getElementById('landStatus').textContent='no landmark set';
+  document.getElementById('landStatus1').textContent='1: not set';
+  document.getElementById('landStatus2').textContent='2: not set';
 }
 function setStep(t){const s=document.getElementById('estStep');s.textContent=t;s.style.display='block';}
 
@@ -1226,7 +1237,7 @@ document.getElementById('estFile').onchange=e=>{
   img.onload=()=>{
     document.getElementById('estStage').style.display='block';
     document.getElementById('estModeRow').style.display='flex';
-    ['estResult','estDrop','mkHorizon','mkBase','mkLand','landPanel'].forEach(id=>document.getElementById(id).style.display='none');
+    ['estResult','estDrop','mkHorizon','mkBase','mkLand','mkLand2','landPanel'].forEach(id=>document.getElementById(id).style.display='none');
     EST.mode=null; EST.step=0;
     setStep('Pick a method above. Most hazards on the horizon = Far (landmark).');
   };
@@ -1236,8 +1247,10 @@ document.getElementById('estFile').onchange=e=>{
 // --- mode selection ---
 function setMode(m){
   EST.mode=m; EST.step=1; EST.dist=null;
-  EST.horizonY=null; EST.baseY=null; EST.landXY=null; EST.objXY=null;
-  ['mkHorizon','mkBase','mkLand','estResult','estDrop'].forEach(id=>document.getElementById(id).style.display='none');
+  EST.horizonY=null; EST.baseY=null;
+  EST.land1XY=null; EST.land2XY=null; EST.objXY=null;
+  EST.land1LatLng=null; EST.land2LatLng=null; EST.pickTarget=0;
+  ['mkHorizon','mkBase','mkLand','mkLand2','estResult','estDrop'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById('estRetap').style.display='inline-block';
   document.getElementById('modeFar').classList.toggle('active', m==='far');
   document.getElementById('modeNear').classList.toggle('active', m==='near');
@@ -1247,7 +1260,9 @@ function setMode(m){
     setStep('Step 1: tap the HORIZON line (where sky meets land).');
   } else {
     document.getElementById('landPanel').style.display='block';
-    setStep('Step 1: tap the LANDMARK in the photo (e.g. the water tower).');
+    document.getElementById('landStatus1').textContent='1: not set';
+    document.getElementById('landStatus2').textContent='2: not set';
+    setStep('Step 1: tap LANDMARK 1 in the photo (e.g. the water tower).');
   }
 }
 document.getElementById('modeFar').onclick=()=>setMode('far');
@@ -1307,47 +1322,80 @@ function computeNear(){
   setStep('Estimated. Set the bearing, then drop the pin.');
 }
 
-// ===== FAR (landmark) =====
-document.getElementById('landPickMap').onclick=()=>{
-  landPickActive=true;
+// ===== FAR (two-landmark triangulation) =====
+// Photo taps give each feature an x-fraction. Two landmarks with KNOWN real
+// bearings from PADDC let us solve the photo's angular scale and center WITHOUT
+// guessing field of view:  bearing(x) = b0 + k*x  (linear across a rectilinear
+// frame). Solve k and b0 from the two anchors, then the object's x gives its
+// exact bearing. Distance is interpolated between the two landmarks' known
+// distances by the object's x position (calibrated by two real points, not one).
+function startPick(n){
+  EST.pickTarget=n; landPickActive=true;
   document.getElementById('estOverlay').classList.remove('show');
-  toast('Tap the landmark on the map');
-};
-// handled by a dedicated map click (added once, below)
+  toast('Tap landmark '+n+' on the map');
+}
+document.getElementById('landPickMap1').onclick=()=>startPick(1);
+document.getElementById('landPickMap2').onclick=()=>startPick(2);
+
 function farTap(xFrac,yFrac){
   if(EST.step===1){
-    EST.landXY={x:xFrac,y:yFrac};
+    EST.land1XY={x:xFrac,y:yFrac};
     const mk=document.getElementById('mkLand'); mk.style.left=(xFrac*100)+'%'; mk.style.top=(yFrac*100)+'%'; mk.style.display='block';
-    EST.step=2; setStep('Step 2: tap the OBJECT (the hazard) in the photo.');
+    EST.step=2; setStep('Step 2: tap LANDMARK 2 in the photo (a different fixed object).');
   } else if(EST.step===2){
+    EST.land2XY={x:xFrac,y:yFrac};
+    const mk=document.getElementById('mkLand2'); mk.style.left=(xFrac*100)+'%'; mk.style.top=(yFrac*100)+'%'; mk.style.display='block';
+    EST.step=3; setStep('Step 3: tap the HAZARD in the photo.');
+  } else if(EST.step===3){
     EST.objXY={x:xFrac,y:yFrac};
     const mk=document.getElementById('mkBase'); mk.style.left=(xFrac*100)+'%'; mk.style.top=(yFrac*100)+'%'; mk.style.display='block';
-    EST.step=3;
-    setStep('Now set where that landmark really is: tap "Set landmark on map".');
+    EST.step=4;
+    setStep('Now set each landmark on the map (buttons below), then it computes.');
     tryComputeFar();
   }
 }
+
 function tryComputeFar(){
-  if(!EST.landLatLng || !EST.landXY || !EST.objXY){ return; }
-  const landD=haversine(launch, EST.landLatLng);           // real metres PADDC->landmark
-  const landB=bearing(launch, EST.landLatLng);             // real bearing PADDC->landmark
-  // object's horizontal offset from landmark in the frame -> angular offset
-  const dxFrac=EST.objXY.x - EST.landXY.x;
-  const dAng=dxFrac*EST.hfovDeg;                            // degrees (right = +)
-  const objB=(landB + dAng + 360)%360;
-  // assume object is at a similar range to the landmark (both on the horizon);
-  // this is the honest approximation -- distance is the landmark's, bearing is corrected.
-  const objD=landD;
+  if(!EST.land1XY || !EST.land2XY || !EST.objXY) return;
+  if(!EST.land1LatLng || !EST.land2LatLng) return;   // still need both map picks
+  const d1=haversine(launch, EST.land1LatLng), b1=bearing(launch, EST.land1LatLng);
+  const d2=haversine(launch, EST.land2LatLng), b2=bearing(launch, EST.land2LatLng);
+  const x1=EST.land1XY.x, x2=EST.land2XY.x, xo=EST.objXY.x;
+  if(Math.abs(x2-x1) < 0.02){
+    showFarResult(null,null,'Pick two landmarks that are farther apart left-to-right in the photo.');
+    return;
+  }
+  // unwrap bearings so interpolation is continuous across 0/360
+  let bb1=b1, bb2=b2;
+  if(Math.abs(bb2-bb1) > 180){ if(bb2>bb1) bb1+=360; else bb2+=360; }
+  // linear bearing model: b = bb1 + (bb2-bb1)*(x-x1)/(x2-x1)
+  const frac=(xo-x1)/(x2-x1);
+  let objB=(bb1 + (bb2-bb1)*frac);
+  objB=((objB%360)+360)%360;
+  // distance interpolated between the two landmark distances by the same frac,
+  // clamped so an object just outside the pair is not wildly extrapolated.
+  const fClamp=Math.max(-0.5, Math.min(1.5, frac));
+  const objD=d1 + (d2-d1)*fClamp;
   const [lat,lng]=destPoint(launch.lat,launch.lng,objB,objD);
   EST.dist=objD; EST.brgOut=objB; EST.latlng=[lat,lng];
+  showFarResult(objB,objD,null,d1,d2);
+}
+function showFarResult(objB,objD,errMsg,d1,d2){
   document.getElementById('estBrgRow').style.display='none';
-  document.getElementById('estResultNote').style.display='block';
-  document.getElementById('estResultNote').textContent='Bearing '+Math.round(objB)+' deg from PADDC, at about the landmark distance. Both assumed on the horizon.';
-  document.getElementById('estDist').textContent=metersToNice(objD);
-  document.getElementById('estRange').textContent='Based on the landmark being '+metersToNice(landD)+' out. Object placed on its bearing at a similar range.';
   document.getElementById('estResult').style.display='block';
+  document.getElementById('estResultNote').style.display='block';
+  if(errMsg){
+    document.getElementById('estDist').textContent='Need a better anchor pair';
+    document.getElementById('estRange').textContent=errMsg;
+    document.getElementById('estResultNote').textContent='';
+    document.getElementById('estDrop').style.display='none';
+    return;
+  }
+  document.getElementById('estDist').textContent=metersToNice(objD);
+  document.getElementById('estRange').textContent='Bearing '+Math.round(objB)+' deg from PADDC. Anchored to landmarks at '+metersToNice(d1)+' and '+metersToNice(d2)+'.';
+  document.getElementById('estResultNote').textContent='Direction is precise (two fixed anchors). Distance is interpolated between them - most accurate when the hazard sits between the two landmarks.';
   document.getElementById('estDrop').style.display='inline-block';
-  setStep('Estimated from landmark. Drop the pin.');
+  setStep('Triangulated. Drop the pin.');
 }
 
 // --- drop pin ---
