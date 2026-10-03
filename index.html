@@ -692,6 +692,25 @@ svg.leaflet-image-layer.leaflet-interactive path {
     border-radius:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);
     box-shadow:0 2px 10px rgba(0,0,0,.3);}
   .chipbtn.nfz{border-color:#8a5cf0;color:#c9b4ff;}
+  .chipbtn.est{border-color:#e5a23f;color:#f0cf9a;}
+  /* Estimate popup */
+  #estSheet{max-width:420px;}
+  #estStage{position:relative;width:100%;background:#000;border-radius:10px;overflow:hidden;
+    margin:8px 0;touch-action:none;}
+  #estImg{display:block;width:100%;height:auto;user-select:none;-webkit-user-drag:none;}
+  #estStage .mk{position:absolute;transform:translate(-50%,-50%);pointer-events:none;}
+  #estStage .mk.horizon{width:100%;left:50%;height:0;border-top:2px dashed #3fd0ff;
+    transform:translate(-50%,0);box-shadow:0 0 0 1px rgba(0,0,0,.5);}
+  #estStage .mk.base{width:16px;height:16px;border-radius:50%;border:3px solid #e5484d;
+    background:rgba(229,72,77,.3);}
+  #estStep{font-size:13px;font-weight:700;color:var(--accent);margin:2px 0 6px;}
+  #estResult{display:none;background:var(--panel2,#1c2230);border:1px solid var(--line,#30363d);
+    border-radius:10px;padding:10px 12px;margin:8px 0;}
+  #estResult b{font-size:20px;color:#fff;}
+  #estResult .rng{color:var(--muted);font-size:12px;margin-top:2px;}
+  #estBrgRow{display:flex;gap:8px;align-items:center;margin-top:8px;}
+  #estBrgRow input{flex:1;}
+  .est-note{font-size:11px;color:var(--muted);line-height:1.4;margin-top:6px;}
 
   /* Slim single-line readout */
   #readout{position:fixed;z-index:1000;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 42px);
@@ -789,6 +808,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <div class="title">PADDC<small id="statusline">GPS...</small></div>
   <button id="mapType" class="chipbtn">Sat</button>
   <button id="nfzToggle" class="chipbtn nfz">NFZ</button>
+  <button id="estBtn" class="chipbtn est">Est</button>
 </div>
 
 <div id="readout">
@@ -846,6 +866,37 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <button class="btn-launch" id="capSave">Save to list</button>
       <button class="btn-ghost" id="capClose">Close</button>
     </div>
+  </div>
+</div>
+
+<!-- Photo distance estimate popup -->
+<div class="overlay" id="estOverlay">
+  <div class="sheet" id="estSheet">
+    <h3>Estimate hazard distance</h3>
+    <div class="sub">Upload a photo taken from PADDC, then tap the horizon and the base of the object.</div>
+    <input type="file" id="estFile" accept="image/*" style="display:none">
+    <button class="btn-launch" id="estPick">Choose / take a photo</button>
+    <div id="estStep" style="display:none;"></div>
+    <div id="estStage" style="display:none;">
+      <img id="estImg" alt="">
+      <div class="mk horizon" id="mkHorizon" style="display:none;top:0;"></div>
+      <div class="mk base" id="mkBase" style="display:none;left:0;top:0;"></div>
+    </div>
+    <div id="estResult">
+      <b id="estDist">-</b>
+      <div class="rng" id="estRange"></div>
+      <div id="estBrgRow">
+        <span style="font-size:12px;color:var(--muted);">Bearing from PADDC</span>
+        <input type="number" id="estBrg" min="0" max="359" placeholder="deg" inputmode="numeric">
+      </div>
+      <div class="est-note">Enter the compass direction you were facing (0-359). The pin drops that far out along that bearing.</div>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <button class="btn-mini btn-mini-ghost" id="estRetap" style="display:none;">Re-tap</button>
+      <button class="btn-launch" id="estDrop" style="display:none;">Drop pin on map</button>
+      <button class="btn-ghost" id="estClose">Close</button>
+    </div>
+    <div class="est-note">Works best on flat ground with a clear horizon and the object's base visible. Result is a ballpark, not a survey measurement - accuracy drops the farther the object is.</div>
   </div>
 </div>
 
@@ -1096,6 +1147,109 @@ document.getElementById('clearHdg').onclick=()=>{
   if(headingLine){ if(headingLine._tip)map.removeLayer(headingLine._tip); map.removeLayer(headingLine); headingLine=null; }
   document.getElementById('hdgInput').value='';
 };
+
+// ---- photo distance estimate ----
+// Model: camera at PADDC, roughly eye height. Object sits on flat ground.
+// The vertical angle below the true horizon to the object's base gives range:
+//   depression angle  a = (horizonY - baseY) / imgHeight * verticalFOV
+//   distance          D = cameraHeight / tan(a)
+// Phone cameras ~ 60-70 deg vertical FOV when held in portrait; we use 68.
+const EST = {
+  camH: 1.6,        // camera height, metres (standing eye level)
+  vfovDeg: 68,      // assumed vertical field of view, portrait phone photo
+  horizonY: null,   // fraction 0..1 down the image
+  baseY: null,
+  step: 0,          // 0 none, 1 need horizon, 2 need base, 3 done
+  dist: null        // metres
+};
+function openEst(){ resetEst(); document.getElementById('estOverlay').classList.add('show'); }
+function resetEst(){
+  EST.horizonY=null; EST.baseY=null; EST.step=0; EST.dist=null;
+  document.getElementById('estStage').style.display='none';
+  document.getElementById('estStep').style.display='none';
+  document.getElementById('estResult').style.display='none';
+  document.getElementById('estDrop').style.display='none';
+  document.getElementById('estRetap').style.display='none';
+  document.getElementById('mkHorizon').style.display='none';
+  document.getElementById('mkBase').style.display='none';
+  document.getElementById('estBrg').value='';
+}
+document.getElementById('estBtn').onclick=openEst;
+document.getElementById('estPick').onclick=()=>document.getElementById('estFile').click();
+document.getElementById('estFile').onchange=e=>{
+  const f=e.target.files && e.target.files[0]; if(!f) return;
+  const url=URL.createObjectURL(f);
+  const img=document.getElementById('estImg');
+  img.onload=()=>{
+    document.getElementById('estStage').style.display='block';
+    document.getElementById('estResult').style.display='none';
+    document.getElementById('estDrop').style.display='none';
+    document.getElementById('mkHorizon').style.display='none';
+    document.getElementById('mkBase').style.display='none';
+    EST.horizonY=null; EST.baseY=null; EST.step=1;
+    setStep('Step 1: tap the HORIZON line (where sky meets land).');
+    document.getElementById('estRetap').style.display='inline-block';
+  };
+  img.src=url;
+};
+function setStep(t){const s=document.getElementById('estStep');s.textContent=t;s.style.display='block';}
+document.getElementById('estRetap').onclick=()=>{
+  EST.horizonY=null; EST.baseY=null; EST.step=1; EST.dist=null;
+  document.getElementById('mkHorizon').style.display='none';
+  document.getElementById('mkBase').style.display='none';
+  document.getElementById('estResult').style.display='none';
+  document.getElementById('estDrop').style.display='none';
+  setStep('Step 1: tap the HORIZON line (where sky meets land).');
+};
+document.getElementById('estStage').addEventListener('click',ev=>{
+  const img=document.getElementById('estImg');
+  const r=img.getBoundingClientRect();
+  const yFrac=Math.min(1,Math.max(0,(ev.clientY-r.top)/r.height));
+  if(EST.step===1){
+    EST.horizonY=yFrac;
+    const mk=document.getElementById('mkHorizon');
+    mk.style.top=(yFrac*100)+'%'; mk.style.display='block';
+    EST.step=2;
+    setStep('Step 2: tap the BASE of the object (where it meets the ground).');
+  } else if(EST.step===2){
+    if(yFrac<=EST.horizonY){ toast('Base must be BELOW the horizon'); return; }
+    EST.baseY=yFrac;
+    const mk=document.getElementById('mkBase');
+    const r2=img.getBoundingClientRect();
+    const xFrac=Math.min(1,Math.max(0,(ev.clientX-r2.left)/r2.width));
+    mk.style.left=(xFrac*100)+'%'; mk.style.top=(yFrac*100)+'%'; mk.style.display='block';
+    computeEst();
+  }
+});
+function computeEst(){
+  // depression angle below horizon
+  const img=document.getElementById('estImg');
+  const h=img.naturalHeight||img.height||1;
+  const dyFrac=EST.baseY-EST.horizonY;                 // fraction of image height
+  const aDeg=dyFrac*EST.vfovDeg;                        // degrees below horizon
+  const a=aDeg*Math.PI/180;
+  if(a<=0.00005){ toast('Too close to the horizon to estimate'); return; }
+  const D=EST.camH/Math.tan(a);                        // metres
+  EST.dist=D; EST.step=3;
+  // Build a range: angle read error ~ +/-25% of the gap => distance band
+  const dLo=EST.camH/Math.tan(a*1.35);
+  const dHi=EST.camH/Math.tan(a*0.65);
+  document.getElementById('estDist').textContent=metersToNice(D);
+  document.getElementById('estRange').textContent='Likely range: '+metersToNice(Math.max(0,dLo))+'  to  '+metersToNice(dHi);
+  document.getElementById('estResult').style.display='block';
+  document.getElementById('estDrop').style.display='inline-block';
+  setStep('Estimated. Set the bearing, then drop the pin.');
+}
+document.getElementById('estDrop').onclick=()=>{
+  if(EST.dist==null){ toast('Estimate first'); return; }
+  const b=parseFloat(document.getElementById('estBrg').value);
+  if(isNaN(b)||b<0||b>360){ toast('Enter a bearing 0-359'); return; }
+  const [lat,lng]=destPoint(launch.lat,launch.lng,b,EST.dist);
+  document.getElementById('estOverlay').classList.remove('show');
+  openCapture(lat,lng,'Photo estimate (~'+metersToNice(EST.dist)+')');
+};
+document.getElementById('estClose').onclick=()=>document.getElementById('estOverlay').classList.remove('show');
+document.getElementById('estOverlay').onclick=e=>{if(e.target.id==='estOverlay')e.currentTarget.classList.remove('show');};
 
 // ---- settings / launch / recenter / radius ----
 document.getElementById('gear').onclick=()=>document.getElementById('setOverlay').classList.add('show');
